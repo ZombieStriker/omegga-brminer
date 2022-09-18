@@ -1,0 +1,9 @@
+{
+    "name": "BRMiner",
+    "description": "Infinite Miner Plugin",
+    "author": "Zombie_Striker",
+    "config": {
+    },
+    "commands": [
+    ]
+  }
