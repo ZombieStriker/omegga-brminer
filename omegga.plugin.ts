@@ -1,9 +1,11 @@
 import OmeggaPlugin, { OL, PS, PC, Vector, Brick, WriteSaveObject } from 'omegga';
+import Ore from './ore'
 
 type Config = { foo: string };
 type Storage = { bar: string };
 
 let spots: string[] = [];
+let ores: Ore[] = [];
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -27,15 +29,16 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       async ({ player, position, brick_name, message }) => {
         const block = await getDoorBrickFromInteract(position);
 
-
-
-
-
+        let ore = await this.getOre(position);
+        if(ore == null){
+          ore = new Ore(position,5,'dirt');
+          ores.push(ore);
+        }else{
+          ore.setDurability(ore.durability-1);
+        }
+        
     // get door data from the brick position
       const doorData = (await Omegga.getSaveData({center: position,extent: block.brick.size})) as WriteSaveObject;
-
-        this.clearBricks(position,block.brick.size,block.ownerId)
-
         let x1: string = "x"+(position[0]+40)+"y"+position[1]+"z"+position[2];
         if(spots.indexOf(x1)==-1){
           await Omegga.loadSaveData(doorData, { quiet: true,
@@ -73,6 +76,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           spots.push(z2);
         }
 
+
+        this.clearBricks(position,block.brick.size,block.ownerId)
+
     });
 
 
@@ -82,6 +88,23 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   async stop() {
 
   }
+
+
+
+  async getOre(position: Vector) {
+    for (let index = 0; index < ores.length; index++) {
+      let element = ores[index];
+      if(element.location[0] == position[0]){
+        if(element.location[1] == position[1]){
+          if(element.location[2] == position[2]){
+        return element;
+          }
+        }
+      }
+    }
+  }
+
+
 
   async clearBricks(center: Vector, extent: Vector, ownerId: String){
     // clear the old door bricks
