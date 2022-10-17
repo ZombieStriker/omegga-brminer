@@ -1,16 +1,19 @@
 import OmeggaPlugin, { OL, PS, PC, Vector, Brick, WriteSaveObject } from 'omegga';
+import OreType from './oretype'
 
 export default class Ore{
     location: Vector
     durability: number
-    name: string
+    type: OreType
 
-    constructor(location: Vector, durability: number, name: string){
+    constructor(location: Vector, type: OreType){
         this.location = location;
-        this.durability = durability;
-        this.name = name;
+        this.type = type;
     }
-    public setDurability(durability: number){
+    public setType(type: OreType){
+        this.type = type;
+    }
+    setDurability(durability: number){
         this.durability = durability;
     }
 }
