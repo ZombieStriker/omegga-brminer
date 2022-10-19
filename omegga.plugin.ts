@@ -11,6 +11,7 @@ let ores: Ore[] = [];
 let playerstats : PlayerStats[] = [];
 let oretypes: OreType[] = [];
 let stonetypes: OreType[]=[];
+let lava: OreType = new OreType(1,"Lava",0,-5000000,5000,13,5);
 let doorData = null;
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
@@ -73,6 +74,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       const playerstat = await this.getPlayer(this.omegga.getPlayer(speaker).name);
         this.omegga.whisper(speaker, "You have $"+playerstat.bank);
     });
+    this.omegga.on('cmd:top', async (speaker: string) => {
+      for(const pla of this.omegga.getPlayers()){
+        const playerstat = await this.getPlayer(this.omegga.getPlayer(pla.name).name);
+          this.omegga.whisper(speaker, "-"+pla.name+" : $"+playerstat.bank+" || Level: "+playerstat.level);
+      }
+    });
     this.omegga.on('cmd:upgrade', async (speaker: string) => {
       const playerstat = await this.getPlayer(this.omegga.getPlayer(speaker).name);
       if(playerstat.bank<500){
@@ -84,6 +91,19 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
         this.store.set(playerstat.name+"_level" as 'bar', playerstat.level+"");
         this.omegga.whisper(speaker, "You are now at level "+playerstat.level+".");
+      }
+    });
+    this.omegga.on('cmd:buyhs', async (speaker: string) => {
+      const playerstat = await this.getPlayer(this.omegga.getPlayer(speaker).name);
+      if(playerstat.bank<100){
+        this.omegga.whisper(speaker, "You need atleast $100 to buy a heat suit. You have $"+playerstat.bank);
+        return;
+      }else{
+        playerstat.lavasuit++;
+        playerstat.bank-=100;
+        this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
+        this.store.set(playerstat.name+"_ls" as 'bar', playerstat.lavasuit+"");
+        this.omegga.whisper(speaker, "You now have "+playerstat.lavasuit+" heat suits.");
       }
     });
     this.omegga.on('cmd:upgradeall', async (speaker: string) => {
@@ -126,6 +146,18 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
         
         if(ore==null || ore.getDurability() <= 0){
+
+          if(ore!=null)
+          if(ore.type==lava){
+            if(playerstat.lavasuit>0){
+              playerstat.lavasuit--;
+              this.store.set(playerstat.name+"_ls" as 'bar', playerstat.lavasuit+"");
+            }else{
+            this.omegga.getPlayer(player.id).kill();
+            this.omegga.broadcast(""+playerstat.name+" was killed by lava!");
+            }
+          }
+
         // get door data from the brick position
         let x1: string = "x"+(position[0]+40)+"y"+position[1]+"z"+position[2];
 
@@ -169,7 +201,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
 
 
-    return { registeredCommands: ['upgrade','upgradeall','bank'] };
+    return { registeredCommands: ['upgrade','upgradeall','bank','top','buyhs'] };
   }
 
   async stop() {
@@ -187,7 +219,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     if(blockPos[2]<120&&blockPos[2]>0)
     return null;
     let ore = null;
-    if(getRandomInt(100)<4){
+    if(getRandomInt(100)<Math.min(50,-blockPos[2]/7000)){
+        ore = new Ore(blockPos,lava);
+        ores.push(ore);
+    }else if(getRandomInt(100)<4){
       let oret = oretypes[getRandomInt(oretypes.length)];
       while(oret.minY > blockPos[2] || oret.maxY<blockPos[2]){
         oret = oretypes[getRandomInt(oretypes.length)];
@@ -243,15 +278,20 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     }
     let bank = 0;
     let level = 1;
+    let lavasuits = 0;
     let xxl = await this.store.get(player+"_bank" as 'bar')
     let xxk = await this.store.get(player+"_level" as 'bar')
+    let xxls = await this.store.get(player+"_ls" as 'bar')
     if(xxl !== null){
       bank = +xxl;
     }
     if(xxk !== null){
       level = +xxk;
     }
-    const ps = new PlayerStats(player,level,bank);
+    if(xxls !== null){
+      lavasuits = +xxls;
+    }
+    const ps = new PlayerStats(player,level,bank,lavasuits);
     playerstats.push(ps);
     return ps;
   }
