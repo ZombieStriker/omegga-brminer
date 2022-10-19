@@ -30,40 +30,41 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga.loadBricks("brminer");
 
 
-    oretypes.push(new OreType(10,"Tin",5,-4000,400,0));
-    oretypes.push(new OreType(20,"Copper",5,-4000,400,15));
-    oretypes.push(new OreType(30,"Cobalt",10,-4000,400,20));
-    oretypes.push(new OreType(60,"Iron",15,-4000,400,7));
-    oretypes.push(new OreType(70,"Tungsten",25,-4000,400,10));
-    oretypes.push(new OreType(100,"Gold",45,-4000,400,16));
-    oretypes.push(new OreType(200,"Diamond",50,-4000,400,20));
-    oretypes.push(new OreType(400,"Emerald",100,-4000,400,18));
-    oretypes.push(new OreType(1100,"Dura-Steel",100,-16000,-400,19));
-    oretypes.push(new OreType(1200,"Netherite",125,-16000,-400,8));
-    oretypes.push(new OreType(2200,"Plasteel",225,-16000,-400,20));
-    oretypes.push(new OreType(4100,"Platinum",425,-16000,-400,20));
-    oretypes.push(new OreType(5100,"Beskar",525,-16000,-400,11));
+    oretypes.push(new OreType(10,"Tin",5,-40000,4000,0,3));
+    oretypes.push(new OreType(20,"Copper",5,-40000,4000,15,6));
+    oretypes.push(new OreType(30,"Cobalt",10,-40000,4000,20,3));
+    oretypes.push(new OreType(60,"Iron",15,-40000,4000,7,3));
+    oretypes.push(new OreType(70,"Tungsten",25,-40000,4000,10,6));
+    oretypes.push(new OreType(100,"Gold",45,-40000,4000,16,6));
+    oretypes.push(new OreType(200,"Diamond",50,-40000,4000,20,4));
+    oretypes.push(new OreType(400,"Emerald",100,-40000,4000,18,3));
+    oretypes.push(new OreType(1100,"Dura-Steel",100,-160000,-4000,19,6));
+    oretypes.push(new OreType(1200,"Netherite",125,-160000,-4000,8,6));
+    oretypes.push(new OreType(2200,"Plasteel",225,-160000,-4000,20,3));
+    oretypes.push(new OreType(4100,"Platinum",425,-160000,-4000,20,3));
+    oretypes.push(new OreType(5100,"Beskar",525,-160000,-4000,11,6));
+    oretypes.push(new OreType(10100,"Uranium",1025,-160000,-4000,18,7));
 
 
 
 
-    stonetypes.push(new OreType(99995,"Space",0,2800,5200,11));
-    stonetypes.push(new OreType(59999,"Thin Air",0,2400,2800,72));
-    stonetypes.push(new OreType(9995,"Air",0,2000,2400,79));
-    stonetypes.push(new OreType(995,"Water",0,1600,2000,82));
-    stonetypes.push(new OreType(15,"Gravel",0,800,1600,7));
-    stonetypes.push(new OreType(5,"Dirt",0,400,800,12));
+    stonetypes.push(new OreType(99995,"Space",25,28000,52000,11,5));
+    stonetypes.push(new OreType(59999,"Thin Air",20,24000,28000,72,3));
+    stonetypes.push(new OreType(9995,"Air",15,20000,24000,79,3));
+    stonetypes.push(new OreType(995,"Water",10,16000,20000,82,3));
+    stonetypes.push(new OreType(15,"Gravel",5,8000,16000,7,3));
+    stonetypes.push(new OreType(5,"Dirt",2,4000,8000,12,3));
     //Start here
-    stonetypes.push(new OreType(5,"Stone",0,-400,400,4));
-    stonetypes.push(new OreType(15,"Hard Stone",0,-800,-400,5));
-    stonetypes.push(new OreType(115,"Harder Stone",0,-1200,-800,5));
-    stonetypes.push(new OreType(1115,"Hardest Stone",0,-1600,-1200,6));
-    stonetypes.push(new OreType(11115,"Deepslate",0,-2000,-1600,7));
-    stonetypes.push(new OreType(22225,"Bedrock",0,-2400,-2000,8));
-    stonetypes.push(new OreType(33335,"Granite",0,-3000,-2400,12));
-    stonetypes.push(new OreType(55555,"Condensed Stone",0,-4000,-3000,7));
-    stonetypes.push(new OreType(66666,"Hardened Stone Squared",0,-5000,-400,8));
-    stonetypes.push(new OreType(100000,"Deep Stone",0,-7000,-5000,9));
+    stonetypes.push(new OreType(5,"Stone",1,-4000,4000,4,3));
+    stonetypes.push(new OreType(15,"Hard Stone",2,-8000,-4000,5,3));
+    stonetypes.push(new OreType(115,"Harder Stone",4,-12000,-8000,5,3));
+    stonetypes.push(new OreType(1115,"Hardest Stone",8,-16000,-12000,6,3));
+    stonetypes.push(new OreType(11115,"Deepslate",16,-20000,-16000,7,3));
+    stonetypes.push(new OreType(22225,"Bedrock",32,-24000,-20000,8,3));
+    stonetypes.push(new OreType(33335,"Granite",64,-30000,-24000,12,3));
+    stonetypes.push(new OreType(55555,"Condensed Stone",128,-40000,-30000,7,3));
+    stonetypes.push(new OreType(66666,"Hardened Stone Squared",256,-50000,-40000,8,3));
+    stonetypes.push(new OreType(100000,"Deep Stone",512,-70000,-50000,9,3));
 
 
 
@@ -73,12 +74,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
     this.omegga.on('cmd:upgrade', async (speaker: string) => {
       const playerstat = await this.getPlayer(this.omegga.getPlayer(speaker).name);
-      if(playerstat.bank<100){
-        this.omegga.whisper(speaker, "You need atleast $100 to upgrade your pick. You have $"+playerstat.bank);
+      if(playerstat.bank<500){
+        this.omegga.whisper(speaker, "You need atleast $500 to upgrade your pick. You have $"+playerstat.bank);
         return;
       }else{
         playerstat.level++;
-        playerstat.bank-=100;
+        playerstat.bank-=500;
         this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
         this.store.set(playerstat.name+"_level" as 'bar', playerstat.level+"");
         this.omegga.whisper(speaker, "You are now at level "+playerstat.level+".");
@@ -87,12 +88,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga.on('cmd:upgradeall', async (speaker: string) => {
       const playerstat = await this.getPlayer(speaker);
       if(playerstat.bank<100){
-        this.omegga.whisper(speaker, "You need atleast $100 to upgrade your pick. You have $"+playerstat.bank);
+        this.omegga.whisper(speaker, "You need atleast $500 to upgrade your pick. You have $"+playerstat.bank);
         return;
       }else{
-        while(playerstat.bank>=100){
+        while(playerstat.bank>=500){
         playerstat.level++;
-        playerstat.bank-=100;
+        playerstat.bank-=500;
         }
         this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
         this.store.set(playerstat.name+"_level" as 'bar', playerstat.level+"");
@@ -102,24 +103,31 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     
     this.omegga.on('interact',
       async ({ player, position, brick_name, message }) => {
-        const block = await getDoorBrickFromInteract(position);
         const playerstat = await this.getPlayer(this.omegga.getPlayer(player.name).name);
+        if(Date.now()-playerstat.cooldown<100){
+            return;
+        }
+        playerstat.cooldown=Date.now();
+        const block = await getDoorBrickFromInteract(position);
 
         let ore = await this.getOre(position);
         if(ore == null){
           ore = await this.genOre(position,block,0,0,0);
         }else{
+          if(ore!=null&&ore.type.price>0){
+            if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
+          this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+ore.type.price);
+          playerstat.bank+=ore.type.price;
+          this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
+          }
+        }
           ore.setDurability(ore.getDurability()-playerstat.level);
         }
         
         if(ore==null || ore.getDurability() <= 0){
-          if(ore!=null&&ore.type.price>0){
-          this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+ore.type.price);
-          playerstat.bank+=ore.type.price;
-          this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
-        }
         // get door data from the brick position
         let x1: string = "x"+(position[0]+40)+"y"+position[1]+"z"+position[2];
+
         if(spots.indexOf(x1)==-1){
           let oreStuff = this.genOre(position,block,40,0,0);
           spots.push(x1);
@@ -149,8 +157,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           let oreStuff = this.genOre(position,block,0,0,-40);
           spots.push(z2);
         }
-
+          if(block.brick!=null){
           this.clearBricks(position,block.brick.size,block.ownerId);
+          }
+      
         }else{          
         this.omegga.middlePrint(player.name,ore.type.name+" || Durability: "+ore.getDurability());
         }
@@ -176,7 +186,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     if(blockPos[2]<120&&blockPos[2]>0)
     return null;
     let ore = null;
-    if(getRandomInt(100)<1){
+    if(getRandomInt(100)<4){
       let oret = oretypes[getRandomInt(oretypes.length)];
       while(oret.minY > blockPos[2] || oret.maxY<blockPos[2]){
         oret = oretypes[getRandomInt(oretypes.length)];
@@ -193,7 +203,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       ore = new Ore(blockPos,stone);
       ores.push(ore);
     }
-    doorData.bricks[0].color=ore.type.color
+    doorData.bricks[0].color=ore.type.color;
+    doorData.bricks[0].material_index=ore.type.material;
     await Omegga.loadSaveData(doorData, { quiet: true,
     offX: xx,
     offY: yy,
