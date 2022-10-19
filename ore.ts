@@ -9,11 +9,15 @@ export default class Ore{
     constructor(location: Vector, type: OreType){
         this.location = location;
         this.type = type;
+        this.durability= type.durability;
     }
     public setType(type: OreType){
         this.type = type;
     }
-    setDurability(durability: number){
+    public setDurability(durability: number){
         this.durability = durability;
+    }
+    public getDurability(){
+        return this.durability;
     }
 }
