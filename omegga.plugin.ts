@@ -11,6 +11,7 @@ let ores: Ore[] = [];
 let playerstats : PlayerStats[] = [];
 let oretypes: OreType[] = [];
 let stonetypes: OreType[]=[];
+let doorData = null;
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -48,7 +49,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
 
 
-    stonetypes.push(new OreType(99995,"Space",25,28000,52000,11,5));
+    stonetypes.push(new OreType(99995,"Space",32,28000,52000,11,5));
     stonetypes.push(new OreType(59999,"Thin Air",20,24000,28000,72,3));
     stonetypes.push(new OreType(9995,"Air",15,20000,24000,79,3));
     stonetypes.push(new OreType(995,"Water",10,16000,20000,82,3));
@@ -176,7 +177,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async genOre(pos: Vector,block: any, xx: number, yy: number, zz: number){
-    const doorData = (await Omegga.getSaveData({center: pos, extent: block.brick.size})) as WriteSaveObject;
+    doorData =  (await Omegga.getSaveData({center: pos, extent: block.brick.size})) as WriteSaveObject;
     let blockPos: Vector = [pos[0],pos[1],pos[2]];
     blockPos[0]+=xx;
     blockPos[1]+=yy;
