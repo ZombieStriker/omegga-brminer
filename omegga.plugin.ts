@@ -2,11 +2,12 @@ import OmeggaPlugin, { OL, PS, PC, Vector, Brick, WriteSaveObject } from 'omegga
 import { PlayerStats } from './playerstats';
 import Ore from './ore'
 import OreType from './oretype'
+import { Chunk } from './chunk';
 
 type Config = { foo: string };
 type Storage = { bar: string };
 
-let spots: string[] = [];
+let spots: Chunk[] = [];
 let ores: Ore[] = [];
 let playerstats : PlayerStats[] = [];
 let oretypes: OreType[] = [];
@@ -160,36 +161,44 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
         // get door data from the brick position
         let x1: string = "x"+(position[0]+40)+"y"+position[1]+"z"+position[2];
-
-        if(spots.indexOf(x1)==-1){
+        let chunk = getChunk(position[0]+40,position[1],position[2]);
+        if(chunk.spots.indexOf(x1)==-1){
           let oreStuff = this.genOre(position,block,40,0,0);
-          spots.push(x1);
+          chunk.spots.push(x1);
         }
-        let x2: string = "x"+(position[0]-40)+"y"+position[1]+"z"+position[2];
-        if(spots.indexOf(x2)==-1){
+
+        x1 = "x"+(position[0]-40)+"y"+position[1]+"z"+position[2];
+        chunk = getChunk(position[0]-40,position[1],position[2]);
+        if(chunk.spots.indexOf(x1)==-1){
           let oreStuff = this.genOre(position,block,-40,0,0);
-          spots.push(x2);
+          chunk.spots.push(x1);
         }
-        let y1: string = "x"+(position[0])+"y"+(position[1]+40)+"z"+position[2];
-        if(spots.indexOf(y1)==-1){
+        x1 = "x"+(position[0])+"y"+(position[1]+40)+"z"+(position[2]);
+        chunk = getChunk(position[0],position[1]+40,position[2]);
+        if(chunk.spots.indexOf(x1)==-1){
           let oreStuff = this.genOre(position,block,0,40,0);
-          spots.push(y1);
+          chunk.spots.push(x1);
         }
-        let y2: string = "x"+(position[0])+"y"+(position[1]-40)+"z"+position[2];
-        if(spots.indexOf(y2)==-1){
+        x1 = "x"+(position[0])+"y"+(position[1]-40)+"z"+(position[2]);
+        chunk = getChunk(position[0],position[1]-40,position[2]);
+        if(chunk.spots.indexOf(x1)==-1){
           let oreStuff = this.genOre(position,block,0,-40,0);
-          spots.push(y2);
+          chunk.spots.push(x1);
         }
-        let z1: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]+40);
-        if(spots.indexOf(z1)==-1){
+        x1 = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]+40);
+        chunk = getChunk(position[0],position[1],position[2]+40);
+        if(chunk.spots.indexOf(x1)==-1){
           let oreStuff = this.genOre(position,block,0,0,40);
-          spots.push(z1);
+          chunk.spots.push(x1);
         }
-        let z2: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]-40);
-        if(spots.indexOf(z2)==-1){
+        x1 = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]-40);
+        chunk = getChunk(position[0],position[1],position[2]-40);
+        if(chunk.spots.indexOf(x1)==-1){
           let oreStuff = this.genOre(position,block,0,0,-40);
-          spots.push(z2);
+          chunk.spots.push(x1);
         }
+
+
           if(block.brick!=null){
           this.clearBricks(position,block.brick.size,block.ownerId);
           }
@@ -295,6 +304,21 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     playerstats.push(ps);
     return ps;
   }
+}
+
+function getChunk(x: number, y: number, z: number){
+  for(const chunk of spots){
+    if(x/2560==chunk.x){
+      if(y/2560==chunk.y){
+        if(z/2560==chunk.z){
+          return chunk;
+        }
+      }
+    }
+  }
+  let c = new Chunk(x/2560,y/2560,z/2560);
+  spots.push(c);
+  return c;
 }
 
 function getRandomInt(max: number) {
