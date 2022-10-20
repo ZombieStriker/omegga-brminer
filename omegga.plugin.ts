@@ -29,9 +29,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async init() {
-
+    const playerStatsStore = await this.store.get("playerStatsObject")
     this.omegga.on('start',async()=>{
-      const playerStatsStore = await this.store.get("playerStatsObject")
       for(const pla of this.omegga.getPlayers()){
         if(playerStatsStore[pla.name] === undefined){
           playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0);
@@ -46,7 +45,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
 
     this.omegga.on('autorestart',async()=>{
-      const playerStatsStore = await this.store.get("playerStatsObject")
       for(const pla of this.omegga.getPlayers()){
         if(playerStatsStore[pla.name] === undefined){
           playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0);
@@ -59,7 +57,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         this.omegga.loadBricks("brminer")
       }
     });
-    const playerStatsStore = await this.store.get("playerStatsObject")
     for(const pla of this.omegga.getPlayers()){
       if(playerStatsStore[pla.name] === undefined){
         playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0);
@@ -117,13 +114,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     //Autosaver 
 
     const autosaver = setInterval(()=>{
+      this.store.delete("playerStatsObject");
       this.store.set("playerStatsObject", playerstats)
     },(this.config['autosave_interval']*60000));
 
 
     this.omegga.on('join', async (player: OmeggaPlayer) => {
       const name = player.name
-      const playerStatsStore = await this.store.get("playerStatsObject")
       if(playerStatsStore[name] === undefined){
         playerstats[name] = new PlayerStats(name, 1, 0, 0)
         console.info(`New player '${name}' has joined, giving them a playerstats template.`)
@@ -132,7 +129,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     })
     this.omegga.on('leave', async (player: OmeggaPlayer) =>{
       console.info(`Saving PlayerStats...`)
-      this.store.set("playerStatsObject", playerstats)
+      this.store.delete("playerStatsObject");
+      this.store.set("playerStatsObject", playerstats);
     })
 
 
@@ -191,6 +189,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga.on('interact',
       async ({ player, position }) => {
         let playerstat = playerstats[player.name]
+        
+      const name = player.name
+      if(playerstat === undefined){
+        playerstats[name] = new PlayerStats(name, 1, 0, 0)
+        console.info(`New player '${name}' has joined, giving them a playerstats template.`)
+        return;
+      }
         if(Date.now()-playerstat.cooldown<100){
             return;
         }
