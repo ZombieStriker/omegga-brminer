@@ -70,6 +70,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
       this.omegga.clearAllBricks();
       this.omegga.loadBricks("brminer")
+    }
 
 
     oretypes.push(new OreType(10,"Tin",5,-4000000000,4000000000,0,3));
@@ -175,11 +176,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga.on('cmd:upgradeall', async (speaker: string) => {
       let playerstat = playerstats[speaker]
       let cost: number = (playerstat.level*5)+75;
-      if(playerstat.bank<100){
-        this.omegga.whisper(speaker, "You need atleast $500 to upgrade your pick. You have $"+playerstat.bank);
+      if(playerstat.bank<cost){
+        this.omegga.whisper(speaker, "You need atleast $"+cost+" to upgrade your pick. You have $"+playerstat.bank);
         return;
       }else{
-        while(playerstat.bank>=500){
+        while(playerstat.bank>=cost){
         playerstat.level++;
         playerstat.bank-=cost;
         }
@@ -200,17 +201,51 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
         //This code is always expected to work, however if a user attempts to access a brick that doesn't exist, instead of an unhandled exception crash, we log it and mine the brick.
         try {
-          if(ore.type.price>0){
+          if(ore!=null){
             if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
+              if(ore.type.price>0){
               this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+ore.type.price);
               playerstat.bank+=ore.type.price;
+              }
+              
+        switch (ore.type) {
+          case lava:
+            
+            if(playerstat.lavasuit>0){
+              playerstat.lavasuit--;
+            }else{
+            this.omegga.getPlayer(player.id).kill();
+            this.omegga.broadcast(""+playerstat.name+" was killed by lava!");
+            }
+
+            break;
+
+          case lotto:
+
+            let multiplier = 0.02;
+            let chance = 0.99;
+            let ppp = 1;
+            do{
+                multiplier+=Math.random();
+                chance*=0.99;
+                ppp++;
+            }while(Math.random() < chance)
+            globalMoneyMultiplier=multiplier/(ppp/6);
+            this.omegga.broadcast(playerstat.name+" mined a lotto-block and set the multiplier to "+globalMoneyMultiplier);
+            break;
+            case rlcbmium:
+            let date = new Date();
+            this.omegga.broadcast(playerstat.name+": it is now "+date.getHours()+":"+date.getMinutes());
+            break;
+            default:
+            break;
             }
 
             ore.setDurability(ore.getDurability()-playerstat.level);
           }
+          }
         } catch (error) {
-          console.error(`Brick at position (${position[0]},${position[1]},${position[2]}) doesn't exist!`)
-          
+          console.error(`Brick at position (${position[0]},${position[1]},${position[2]}) doesn't exist!`);
         }
 
         
@@ -271,41 +306,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }else{          
         this.omegga.middlePrint(player.name,ore.type.name+" || Durability: "+ore.getDurability());
         }
-
-        if(ore == null) return;
-        switch (ore.type) {
-          case lava:
-            
-            if(playerstat.lavasuit>0){
-              playerstat.lavasuit--;
-            }else{
-            this.omegga.getPlayer(player.id).kill();
-            this.omegga.broadcast(""+playerstat.name+" was killed by lava!");
-            }
-
-            break;
-
-          case lotto:
-
-            let multiplier = 0.02;
-            let chance = 0.99;
-            let ppp = 1;
-            do{
-                multiplier+=Math.random();
-                chance*=0.99;
-                ppp++;
-            }while(Math.random() < chance)
-            globalMoneyMultiplier=multiplier/(ppp/6);
-            this.omegga.broadcast(playerstat.name+" mined a lotto-block and set the multiplier to "+globalMoneyMultiplier);
-            break;
-            case rlcbmium:
-            let date = new Date();
-            this.omegga.broadcast(playerstat.name+": it is now "+date.getHours()+":"+date.getMinutes());
-            break;
-            default:
-            break;
-        }
-
     });
 
 
