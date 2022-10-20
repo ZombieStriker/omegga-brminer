@@ -197,6 +197,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         playerstat.cooldown=Date.now();
 
         let ore = await this.getOre(position);
+        if(ore==null){
+          await this.genOre([position]);
+          ore = await this.getOre(position);
+        }
         
 
         //This code is always expected to work, however if a user attempts to access a brick that doesn't exist, instead of an unhandled exception crash, we log it and mine the brick.
@@ -240,9 +244,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             default:
             break;
             }
-
-            ore.setDurability(ore.getDurability()-playerstat.level);
           }
+          ore.setDurability(ore.getDurability()-playerstat.level);
           }
         } catch (error) {
           console.error(`Brick at position (${position[0]},${position[1]},${position[2]}) doesn't exist!`);
