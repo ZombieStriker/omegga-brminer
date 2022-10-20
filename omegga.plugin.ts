@@ -73,7 +73,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     this.omegga.on('cmd:bank', async (speaker: string) => {
       const playerstat = await this.getPlayer(this.omegga.getPlayer(speaker).name);
-        this.omegga.whisper(speaker, "You have $"+playerstat.bank);
+        this.omegga.whisper(speaker, "You have $"+playerstat.bank.toFixed(2));
     });
     this.omegga.on('cmd:top', async (speaker: string) => {
       for(const pla of this.omegga.getPlayers()){
@@ -140,9 +140,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }else{
           if(ore!=null&&ore.type.price>0){
             if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
-          this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+ore.type.price*globalMoneyMultiplier+"<br><br><br><br><br><br>Level="+playerstat.level+" Y="+ ore.location[2]+"</></></></></></>");
+          this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+(ore.type.price*globalMoneyMultiplier).toFixed(2)+"<br><br><br><br><br><br>Level="+playerstat.level+" Y="+ ore.location[2]+"</></></></></></>");
           playerstat.bank+=ore.type.price*globalMoneyMultiplier;
-          this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
+          this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank.toFixed(2)+"");
           }
         }
           ore.setDurability(ore.getDurability()-playerstat.level);
