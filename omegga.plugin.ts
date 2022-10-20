@@ -13,7 +13,9 @@ let playerstats : PlayerStats[] = [];
 let oretypes: OreType[] = [];
 let stonetypes: OreType[]=[];
 let lava: OreType = new OreType(1,"Lava",0,-5000000,5000,13,5);
+let lotto: OreType = new OreType(15000,"LottoBlock",0,-5000000,5000,18,5);
 let doorData = null;
+let globalMoneyMultiplier = 1;
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -41,12 +43,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     oretypes.push(new OreType(100,"Gold",45,-40000,4000,16,6));
     oretypes.push(new OreType(200,"Diamond",50,-40000,4000,20,4));
     oretypes.push(new OreType(400,"Emerald",100,-40000,4000,18,3));
-    oretypes.push(new OreType(1100,"Dura-Steel",100,-160000,-4000,19,6));
-    oretypes.push(new OreType(1200,"Netherite",125,-160000,-4000,8,6));
-    oretypes.push(new OreType(2200,"Plasteel",225,-160000,-4000,20,3));
-    oretypes.push(new OreType(4100,"Platinum",425,-160000,-4000,20,3));
-    oretypes.push(new OreType(5100,"Beskar",525,-160000,-4000,11,6));
-    oretypes.push(new OreType(10100,"Uranium",1025,-160000,-4000,18,7));
+    oretypes.push(new OreType(1100,"Dura-Steel",300,-160000,-4000,19,6));
+    oretypes.push(new OreType(1200,"Netherite",325,-160000,-4000,8,6));
+    oretypes.push(new OreType(2200,"Plasteel",625,-160000,-4000,20,3));
+    oretypes.push(new OreType(4100,"Platinum",825,-160000,-4000,20,3));
+    oretypes.push(new OreType(5100,"Beskar",1025,-160000,-4000,11,6));
+    oretypes.push(new OreType(10100,"Uranium",2025,-160000,-4000,18,7));
 
 
 
@@ -69,8 +71,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     stonetypes.push(new OreType(66666,"Hardened Stone Squared",256,-50000,-40000,8,3));
     stonetypes.push(new OreType(100000,"Deep Stone",512,-70000,-50000,9,3));
 
-
-
     this.omegga.on('cmd:bank', async (speaker: string) => {
       const playerstat = await this.getPlayer(this.omegga.getPlayer(speaker).name);
         this.omegga.whisper(speaker, "You have $"+playerstat.bank);
@@ -83,12 +83,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
     this.omegga.on('cmd:upgrade', async (speaker: string) => {
       const playerstat = await this.getPlayer(this.omegga.getPlayer(speaker).name);
-      if(playerstat.bank<500){
-        this.omegga.whisper(speaker, "You need atleast $500 to upgrade your pick. You have $"+playerstat.bank);
+      let cost: number = (playerstat.level*5)+75;
+      if(playerstat.bank<cost){
+        this.omegga.whisper(speaker, "You need atleast $"+cost+" to upgrade your pick. You have $"+playerstat.bank);
         return;
       }else{
         playerstat.level++;
-        playerstat.bank-=500;
+        playerstat.bank-=cost;
         this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
         this.store.set(playerstat.name+"_level" as 'bar', playerstat.level+"");
         this.omegga.whisper(speaker, "You are now at level "+playerstat.level+".");
@@ -109,13 +110,14 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
     this.omegga.on('cmd:upgradeall', async (speaker: string) => {
       const playerstat = await this.getPlayer(speaker);
-      if(playerstat.bank<100){
-        this.omegga.whisper(speaker, "You need atleast $500 to upgrade your pick. You have $"+playerstat.bank);
+      let cost: number = (playerstat.level*5)+75;
+      if(playerstat.bank<cost){
+        this.omegga.whisper(speaker, "You need atleast $"+cost+" to upgrade your pick. You have $"+playerstat.bank);
         return;
       }else{
-        while(playerstat.bank>=500){
+        while(playerstat.bank>= (playerstat.level*5)+75){
         playerstat.level++;
-        playerstat.bank-=500;
+        playerstat.bank-=(playerstat.level*5)+75;
         }
         this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
         this.store.set(playerstat.name+"_level" as 'bar', playerstat.level+"");
@@ -138,8 +140,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }else{
           if(ore!=null&&ore.type.price>0){
             if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
-          this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+ore.type.price);
-          playerstat.bank+=ore.type.price;
+          this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+ore.type.price*globalMoneyMultiplier+"<br><br><br><br><br><br>Level="+playerstat.level+" Y="+ ore.location[2]+"</></></></></></>");
+          playerstat.bank+=ore.type.price*globalMoneyMultiplier;
           this.store.set(playerstat.name+"_bank" as 'bar', playerstat.bank+"");
           }
         }
@@ -148,7 +150,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         
         if(ore==null || ore.getDurability() <= 0){
 
-          if(ore!=null)
+          if(ore!=null){
           if(ore.type==lava){
             if(playerstat.lavasuit>0){
               playerstat.lavasuit--;
@@ -157,7 +159,20 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             this.omegga.getPlayer(player.id).kill();
             this.omegga.broadcast(""+playerstat.name+" was killed by lava!");
             }
+          }else if(ore.type==lotto){
+            let multiplier = 0.02;
+            let chance = 0.99;
+            let ppp = 1;
+            do{
+                multiplier+=Math.random();
+                chance*=0.99;
+                ppp++;
+            }while(Math.random() < chance)
+            globalMoneyMultiplier=multiplier/(ppp/6);
+            this.omegga.broadcast(playerstat.name+" mined a lotto-block and set the multiplier to "+globalMoneyMultiplier);
+          
           }
+        }
 
         // get door data from the brick position
         let x1: string = "x"+(position[0]+40)+"y"+position[1]+"z"+position[2];
@@ -204,7 +219,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           }
       
         }else{          
-        this.omegga.middlePrint(player.name,ore.type.name+" || Durability: "+ore.getDurability());
+        this.omegga.middlePrint(player.name,ore.type.name+" || Durability: "+ore.getDurability()+"<br><br><br><br><br><br>Level="+playerstat.level+" Y="+ ore.location[2]+"</></></></></></>");
         }
 
     });
@@ -228,7 +243,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     if(blockPos[2]<120&&blockPos[2]>0)
     return null;
     let ore = null;
-    if(getRandomInt(100)<Math.min(50,-blockPos[2]/7000)){
+    if(getRandomInt(1000)<1){
+      ore = new Ore(blockPos,lotto);
+      ores.push(ore);
+    }else if(getRandomInt(100)<Math.min(50,-blockPos[2]/7000)){
         ore = new Ore(blockPos,lava);
         ores.push(ore);
     }else if(getRandomInt(100)<4){
