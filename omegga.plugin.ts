@@ -16,6 +16,7 @@ let lava: OreType = new OreType(1,"Lava",0,-5000000,5000,13,5);
 let lotto: OreType = new OreType(15000,"LottoBlock",0,-5000000,5000,18,5);
 let doorData = null;
 let globalMoneyMultiplier = 1;
+let rlcbmium=null;
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -35,7 +36,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga.loadBricks("brminer");
 
 
-    oretypes.push(new OreType(10,"Tin",5,-40000,4000,0,3));
+    oretypes.push(new OreType(10,"Tin",5,-4000000000,4000000000,0,3));
+    oretypes.push(new OreType(200000,"FrogInCharium", 4000,4000,20000,12,6));
     oretypes.push(new OreType(20,"Copper",5,-40000,4000,15,6));
     oretypes.push(new OreType(30,"Cobalt",10,-40000,4000,20,3));
     oretypes.push(new OreType(60,"Iron",15,-40000,4000,7,3));
@@ -49,6 +51,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     oretypes.push(new OreType(4100,"Platinum",825,-160000,-4000,20,3));
     oretypes.push(new OreType(5100,"Beskar",1025,-160000,-4000,11,6));
     oretypes.push(new OreType(10100,"Uranium",2025,-160000,-4000,18,7));
+    oretypes.push(new OreType(200000,"Flavium", 20000,-320000,-16000,12,6));
+    oretypes.push(rlcbmium=new OreType(101000,"rlcbmium",10100,-320000,-16000,23,4));
+    oretypes.push(new OreType(501000,"Aware",50100,-320000,-16000,32,6));
+    oretypes.push(new OreType(1001000,"Cakium",100100,-640000,-32000,37,6));
 
 
 
@@ -78,7 +84,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga.on('cmd:top', async (speaker: string) => {
       for(const pla of this.omegga.getPlayers()){
         const playerstat = await this.getPlayer(this.omegga.getPlayer(pla.name).name);
-          this.omegga.whisper(speaker, "-"+pla.name+" : $"+playerstat.bank+" || Level: "+playerstat.level);
+          this.omegga.whisper(speaker, "-"+pla.name+" : $"+playerstat.bank.toFixed(2)+" || Level: "+playerstat.level);
       }
     });
     this.omegga.on('cmd:upgrade', async (speaker: string) => {
@@ -170,7 +176,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             }while(Math.random() < chance)
             globalMoneyMultiplier=multiplier/(ppp/6);
             this.omegga.broadcast(playerstat.name+" mined a lotto-block and set the multiplier to "+globalMoneyMultiplier);
-          
+          }else if(ore.type==rlcbmium){
+            let date = new Date();
+            this.omegga.broadcast(playerstat.name+": it is now "+date.getHours()+":"+date.getMinutes());
           }
         }
 
