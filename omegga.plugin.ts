@@ -2,16 +2,19 @@ import OmeggaPlugin, { OL, PS, PC, Vector, Brick, WriteSaveObject, OmeggaPlayer 
 import { PlayerStats } from './playerstats';
 import Ore from './ore'
 import OreType from './oretype'
+import { Chunk } from './chunk';
 
 type Config = { foo: string };
 
 const BRICK_SIZE = 20;
-let spots: string[] = []; //An array of all positions that have been generated
+let spots: Chunk[] = []; //An array of all positions that have been generated
 let ores: Ore[] = []; //An array of all current ores loaded in memory.
 let playerstats : {[index:string]: PlayerStats} = {}; //An Object containing all player data
 let oretypes: OreType[] = [];
 let stonetypes: OreType[]=[];
-//let doorData:WriteSaveObject = null;
+let lava: OreType = new OreType(1,"Lava",0,-5000000,5000,13,5);
+let lotto: OreType = new OreType(15000,"LottoBlock",0,-5000000,5000,18,5);
+let globalMoneyMultiplier = 1;
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -26,6 +29,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   async init() {
 
+    const playerStatsStore = await this.store.get("playerStatsObject")
+    for(const pla of this.omegga.getPlayers()){
+      if(playerStatsStore[pla.name] === undefined){
+        playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0)
+        console.info(`New player '${pla.name}' detected, giving them a playerstats template.`)
+      } else {
+        playerstats[pla.name] = playerStatsStore[pla.name]
+      }
+    }
     this.omegga.clearAllBricks();
     this.omegga.loadBricks("brminer");
 
@@ -77,7 +89,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       const name = player.name
       const playerStatsStore = await this.store.get("playerStatsObject")
       if(playerStatsStore[name] === undefined){
-        playerstats[name] = new PlayerStats(name, 1, 0)
+        playerstats[name] = new PlayerStats(name, 1, 0, 0)
         console.info(`New player '${name}' has joined, giving them a playerstats template.`)
         return;
       }
@@ -93,26 +105,48 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         let playerstat = playerstats[speaker]
         this.omegga.whisper(speaker, "You have $"+playerstat.bank);
     });
+
+    this.omegga.on('cmd:top', async (speaker: string) => {
+      for(const pla of this.omegga.getPlayers()){
+        const playerstat = playerstats[pla.name]
+          this.omegga.whisper(speaker, "-"+pla.name+" : $"+playerstat.bank+" || Level: "+playerstat.level);
+      }
+    }); 
     this.omegga.on('cmd:upgrade', async (speaker: string) => {
       let playerstat = playerstats[speaker]
-      if(playerstat.bank<500){
-        this.omegga.whisper(speaker, "You need atleast $500 to upgrade your pick. You have $"+playerstat.bank);
+      let cost: number = (playerstat.level*5)+75;
+      if(playerstat.bank<cost){
+        this.omegga.whisper(speaker, "You need atleast $"+cost+" to upgrade your pick. You have $"+playerstat.bank);
         return;
       }else{
         playerstat.level++;
-        playerstat.bank-=500;
+        playerstat.bank-=cost;
         this.omegga.whisper(speaker, "You are now at level "+playerstat.level+".");
       }
     });
+
+    this.omegga.on('cmd:buyhs', async (speaker: string) => {
+      const playerstat = playerstats[speaker]
+      if(playerstat.bank<100){
+        this.omegga.whisper(speaker, "You need atleast $100 to buy a heat suit. You have $"+playerstat.bank);
+        return;
+      }else{
+        playerstat.lavasuit++;
+        playerstat.bank-=100;
+        this.omegga.whisper(speaker, "You now have "+playerstat.lavasuit+" heat suits.");
+      }
+    });
+
     this.omegga.on('cmd:upgradeall', async (speaker: string) => {
       let playerstat = playerstats[speaker]
+      let cost: number = (playerstat.level*5)+75;
       if(playerstat.bank<100){
         this.omegga.whisper(speaker, "You need atleast $500 to upgrade your pick. You have $"+playerstat.bank);
         return;
       }else{
         while(playerstat.bank>=500){
         playerstat.level++;
-        playerstat.bank-=500;
+        playerstat.bank-=cost;
         }
         this.omegga.whisper(speaker, "You are now at level "+playerstat.level+".");
       }
@@ -127,6 +161,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         playerstat.cooldown=Date.now();
 
         let ore = await this.getOre(position);
+        
 
         //This code is always expected to work, however if a user attempts to access a brick that doesn't exist, instead of an unhandled exception crash, we log it and mine the brick.
         try {
@@ -144,42 +179,54 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
 
         
-        if(ore==null || ore.getDurability() <= 0){
-          // checks for spots that have already been mined
-          if(spots.indexOf("x"+position[0]+"y"+position[1]+"z"+position[2])==-1){
-            spots.push("x"+position[0]+"y"+position[1]+"z"+position[2]);
-          }
+        if(ore == null || ore.getDurability() <= 0){
 
+          // checks for spots that have already been mined
+          if(ore == null) {
+            let chunk = getChunk(position[0],position[1],position[2]);
+            if(chunk.spots.indexOf("x"+position[0]+"y"+position[1]+"z"+position[2])==-1){
+              chunk.spots.push("x"+position[0]+"y"+position[1]+"z"+position[2]);
+            }
+  
+            
+          }
+          
           let x1: string = "x"+(position[0]+40)+"y"+position[1]+"z"+position[2];
+          let chunk = getChunk(position[0]+40,position[1],position[2]);
           let positionArray:Array<Vector> = [];
-          if(spots.indexOf(x1)==-1){
+          if(chunk.spots.indexOf(x1)==-1){
             positionArray.push([position[0]+40,position[1],position[2]])
-            spots.push(x1);
+            chunk.spots.push(x1);
           }
+          chunk = getChunk(position[0]-40,position[1],position[2]);
           let x2: string = "x"+(position[0]-40)+"y"+position[1]+"z"+position[2];
-          if(spots.indexOf(x2)==-1){
+          if(chunk.spots.indexOf(x2)==-1){
             positionArray.push([position[0]-40,position[1],position[2]])
-            spots.push(x2);
+            chunk.spots.push(x2);
           }
+          chunk = getChunk(position[0],position[1]+40,position[2]);
           let y1: string = "x"+(position[0])+"y"+(position[1]+40)+"z"+position[2];
-          if(spots.indexOf(y1)==-1){
+          if(chunk.spots.indexOf(y1)==-1){
             positionArray.push([position[0],position[1]+40,position[2]])
-            spots.push(y1);
+            chunk.spots.push(y1);
           }
+          chunk = getChunk(position[0],position[1]-40,position[2]);
           let y2: string = "x"+(position[0])+"y"+(position[1]-40)+"z"+position[2];
-          if(spots.indexOf(y2)==-1){
+          if(chunk.spots.indexOf(y2)==-1){
             positionArray.push([position[0],position[1]-40,position[2]])
-            spots.push(y2);
+            chunk.spots.push(y2);
           }
+          chunk = getChunk(position[0],position[1],position[2]+40);
           let z1: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]+40);
-          if(spots.indexOf(z1)==-1){
+          if(chunk.spots.indexOf(z1)==-1){
             positionArray.push([position[0],position[1],position[2]+40])
-            spots.push(z1);
+            chunk.spots.push(z1);
           }
+          chunk = getChunk(position[0],position[1],position[2]-40);
           let z2: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]-40);
-          if(spots.indexOf(z2)==-1){
+          if(chunk.spots.indexOf(z2)==-1){
             positionArray.push([position[0],position[1],position[2]-40])
-            spots.push(z2);
+            chunk.spots.push(z2);
           }
           this.genOre(positionArray);
           Omegga.writeln(
@@ -188,6 +235,39 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
         }else{          
         this.omegga.middlePrint(player.name,ore.type.name+" || Durability: "+ore.getDurability());
+        }
+
+        if(ore == null) return;
+        switch (ore.type) {
+          case lava:
+            
+            if(playerstat.lavasuit>0){
+              playerstat.lavasuit--;
+            }else{
+            this.omegga.getPlayer(player.id).kill();
+            this.omegga.broadcast(""+playerstat.name+" was killed by lava!");
+            }
+
+            break;
+
+          case lotto:
+
+            let multiplier = 0.02;
+            let chance = 0.99;
+            let ppp = 1;
+            do{
+                multiplier+=Math.random();
+                chance*=0.99;
+                ppp++;
+            }while(Math.random() < chance)
+            globalMoneyMultiplier=multiplier/(ppp/6);
+            this.omegga.broadcast(playerstat.name+" mined a lotto-block and set the multiplier to "+globalMoneyMultiplier);
+
+          
+          break;
+        
+          default:
+            break;
         }
 
     });
@@ -214,7 +294,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       let ore = null;
       
       // ore generator
-      if(getRandomInt(100)<4){
+      if(getRandomInt(1000)<1){
+        ore = new Ore(blockPos,lotto);
+        ores.push(ore);
+      }else if(getRandomInt(100)<Math.min(50,-blockPos[2]/7000)){
+          ore = new Ore(blockPos,lava);
+          ores.push(ore);
+      }else if(getRandomInt(100)<4){
         let oret = oretypes[getRandomInt(oretypes.length)];
         while(oret.minY > blockPos[2] || oret.maxY<blockPos[2]){
           oret = oretypes[getRandomInt(oretypes.length)];
@@ -367,6 +453,21 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
+}
+
+function getChunk(x: number, y: number, z: number){
+  for(const chunk of spots){
+    if(x/2560==chunk.x){
+      if(y/2560==chunk.y){
+        if(z/2560==chunk.z){
+          return chunk;
+        }
+      }
+    }
+  }
+  let c = new Chunk(x/2560,y/2560,z/2560);
+  spots.push(c);
+  return c;
 }
 
 
