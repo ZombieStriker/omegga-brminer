@@ -55,10 +55,21 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         } else {
           playerstats[pla.name] = playerStatsStore[pla.name];
         }
+        this.omegga.clearAllBricks();
+        this.omegga.loadBricks("brminer")
+      }
+    });
+    const playerStatsStore = await this.store.get("playerStatsObject")
+    for(const pla of this.omegga.getPlayers()){
+      if(playerStatsStore[pla.name] === undefined){
+        playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0);
+        if(pla!=undefined && pla.name!=undefined)
+        console.info(`New player '${pla.name}' detected, giving them a playerstats template.`);
+      } else {
+        playerstats[pla.name] = playerStatsStore[pla.name];
       }
       this.omegga.clearAllBricks();
-      this.omegga.loadBricks("brminer");
-    });
+      this.omegga.loadBricks("brminer")
 
 
     oretypes.push(new OreType(10,"Tin",5,-4000000000,4000000000,0,3));
