@@ -9,12 +9,14 @@ type Config = { foo: string };
 const BRICK_SIZE = 20;
 let spots: Chunk[] = []; //An array of all positions that have been generated
 let ores: Ore[] = []; //An array of all current ores loaded in memory.
-let playerstats : {[index:string]: PlayerStats} = {}; //An Object containing all player data
+//let playerstats : {[index:string]: PlayerStats} = {}; //An Object containing all player data
+let playerstats : PlayerStats[] = []; //An Object containing all player data
 let oretypes: OreType[] = [];
 let stonetypes: OreType[]=[];
 let lava: OreType = new OreType(1,"Lava",0,-5000000,5000,13,5);
 let lotto: OreType = new OreType(15000,"LottoBlock",0,-5000000,5000,18,5);
 let globalMoneyMultiplier = 1;
+let globalMoneyMultiplierTimer = 0;
 let rlcbmium=null;
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
@@ -29,45 +31,38 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async init() {
-    const playerStatsStore = await this.store.get("playerStatsObject")
-    this.omegga.on('start',async()=>{
+    this.omegga.on('autorestart',async()=>{
       for(const pla of this.omegga.getPlayers()){
-        if(playerStatsStore[pla.name] === undefined){
+        const pss_bank = await this.store.get("playerStatsObject_"+pla.name+"_bank");
+        const pss_level = await this.store.get("playerStatsObject_"+pla.name+"_level");
+        const pss_ls = await this.store.get("playerStatsObject_"+pla.name+"_ls");
+        if(pss_bank === undefined || pss_bank===null){
           playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0);
           if(pla!=undefined && pla.name!=undefined)
           console.info(`New player '${pla.name}' detected, giving them a playerstats template.`);
         } else {
-          playerstats[pla.name] = playerStatsStore[pla.name];
+          playerstats[pla.name] = new PlayerStats(pla.name, pss_level, pss_bank, pss_ls);
         }
       }
       this.omegga.clearAllBricks();
-      this.omegga.loadBricks("brminer");
-    });
-
-    this.omegga.on('autorestart',async()=>{
-      for(const pla of this.omegga.getPlayers()){
-        if(playerStatsStore[pla.name] === undefined){
-          playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0);
-          if(pla!=undefined && pla.name!=undefined)
-          console.info(`New player '${pla.name}' detected, giving them a playerstats template.`);
-        } else {
-          playerstats[pla.name] = playerStatsStore[pla.name];
-        }
-        this.omegga.clearAllBricks();
-        this.omegga.loadBricks("brminer")
-      }
+      this.omegga.loadBricks("brminer")
+      spots=[];
+      ores=[];
     });
     for(const pla of this.omegga.getPlayers()){
-      if(playerStatsStore[pla.name] === undefined){
+      const pss_bank = await this.store.get("playerStatsObject_"+pla.name+"_bank");
+      const pss_level = await this.store.get("playerStatsObject_"+pla.name+"_level");
+      const pss_ls = await this.store.get("playerStatsObject_"+pla.name+"_ls");
+      if(pss_bank === undefined || pss_bank===null){
         playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0);
         if(pla!=undefined && pla.name!=undefined)
         console.info(`New player '${pla.name}' detected, giving them a playerstats template.`);
       } else {
-        playerstats[pla.name] = playerStatsStore[pla.name];
+        playerstats[pla.name] = new PlayerStats(pla.name, pss_level, pss_bank, pss_ls);
       }
-      this.omegga.clearAllBricks();
-      this.omegga.loadBricks("brminer")
     }
+    this.omegga.clearAllBricks();
+    this.omegga.loadBricks("brminer")
 
 
     oretypes.push(new OreType(10,"Tin",5,-4000000000,4000000000,0,3));
@@ -84,11 +79,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     oretypes.push(new OreType(2200,"Plasteel",225,-160000,-4000,20,3));
     oretypes.push(new OreType(4100,"Platinum",425,-160000,-4000,20,3));
     oretypes.push(new OreType(5100,"Beskar",525,-160000,-4000,11,6));
-    oretypes.push(new OreType(10100,"Uranium",1025,-160000,-4000,18,7));
+    oretypes.push(new OreType(10100,"Uranium",1025,-160000,-4000,19,5));
+    oretypes.push(new OreType(505000,"Graphite",50000,-32000,-4000,37,7));
     oretypes.push(new OreType(200000,"Flavium", 20000,-320000,-16000,12,6));
     oretypes.push(rlcbmium=new OreType(101000,"rlcbmium",10100,-320000,-16000,23,4));
     oretypes.push(new OreType(501000,"Aware",50100,-320000,-16000,32,6));
     oretypes.push(new OreType(1001000,"Cakium",100100,-640000,-32000,37,6));
+    oretypes.push(new OreType(5005000,"Simulatium",500100,-640000,-32000,37,7));
 
 
 
@@ -114,23 +111,45 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     //Autosaver 
 
     const autosaver = setInterval(()=>{
-      this.store.delete("playerStatsObject");
-      this.store.set("playerStatsObject", playerstats)
+      for(const pss of playerstats){
+        this.store.set("playerStatsObject_"+pss.name+"_bank", pss.bank)
+        this.store.set("playerStatsObject_"+pss.name+"_level", pss.level)
+        this.store.set("playerStatsObject_"+pss.name+"_ls", pss.lavasuit)
+      }
     },(this.config['autosave_interval']*60000));
+    
+    const globalMoneyMultiplierTimerInterval = setInterval(()=>{
+      globalMoneyMultiplierTimer--;
+      if(globalMoneyMultiplierTimer==0){
+        globalMoneyMultiplier=1;
+        this.omegga.broadcast("Ore prices have returned to normal.");
+      }
+    },1000*60);
 
 
     this.omegga.on('join', async (player: OmeggaPlayer) => {
       const name = player.name
-      if(playerStatsStore[name] === undefined){
+      const pss_bank = await this.store.get("playerStatsObject_"+name+"_bank");
+      const pss_level = await this.store.get("playerStatsObject_"+name+"_level");
+      const pss_ls = await this.store.get("playerStatsObject_"+name+"_ls");
+      if(pss_bank === undefined || pss_bank===null){
         playerstats[name] = new PlayerStats(name, 1, 0, 0)
         console.info(`New player '${name}' has joined, giving them a playerstats template.`)
         return;
+      }else{
+        if(playerstats[name]!=undefined&&playerstats[name]!=null){
+        playerstats[name]=new PlayerStats(name, pss_level,pss_bank,pss_ls);
+      }
+
       }
     })
     this.omegga.on('leave', async (player: OmeggaPlayer) =>{
-      console.info(`Saving PlayerStats...`)
-      this.store.delete("playerStatsObject");
-      this.store.set("playerStatsObject", playerstats);
+      const name = player.name
+      console.info("Saving PlayerStats for "+name+"...")
+      const pla = playerstats[name];
+      this.store.set("playerStatsObject_"+name+"_bank",pla.bank);
+      this.store.set("playerStatsObject_"+name+"_level",pla.level);
+      this.store.set("playerStatsObject_"+name+"_ls",pla.lavasuit);
     })
 
 
@@ -141,9 +160,19 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
 
     this.omegga.on('cmd:top', async (speaker: string) => {
+      let playerArray: string[] = [];
       for(const pla of this.omegga.getPlayers()){
-        const playerstat = playerstats[pla.name]
-        this.omegga.whisper(speaker, "-"+pla.name+" : $"+playerstat.bank.toFixed(2)+" || Level: "+playerstat.level);
+        playerArray.push(pla.name);
+      }
+      
+      playerArray.sort(function(a, b) {
+        const playerstat1 = playerstats[a]
+        const playerstat2 = playerstats[b]
+       return playerstat1.level - playerstat2.level;
+      });
+      for(const pla of playerArray){
+        const playerstat = playerstats[pla]
+        this.omegga.whisper(speaker, "-"+pla+" : $"+playerstat.bank.toFixed(2)+" || Level: "+playerstat.level);
       }
     }); 
     this.omegga.on('cmd:upgrade', async (speaker: string) => {
