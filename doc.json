@@ -3,6 +3,11 @@
     "description": "Infinite Miner Plugin",
     "author": "Zombie_Striker",
     "config": {
+      "autosave-interval": {
+        "description": "This is the time (in-minutes) that playerstats are saved to the store",
+        "default": 5,
+        "type": "number"
+      }
     },
     "commands": [
     ]
