@@ -102,6 +102,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
 
     oretypes.push(new OreType(10,"Tin",5,-4000000000,4000000000,0,6));
+    oretypes.push(new OreType(2000,"Worm", 400,4000,20000,44,3));
+    oretypes.push(new OreType(2000,"Pebbles", 400,4000,20000,1,3));
+    oretypes.push(new OreType(25000,"Pipes", 2500,4000,20000,23,3));
+    oretypes.push(new OreType(9000,"Stuff", 900,4000,20000,64,3));
     oretypes.push(new OreType(200000,"FrogInCharium", 4000,4000,20000,12,6));
     oretypes.push(new OreType(10,"Coal",5,-4000000000,4000000000,11,3));
     oretypes.push(new OreType(20,"Copper",5,-40000,4000,15,6));
@@ -131,7 +135,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     stonetypes.push(new OreType(99995,"Space",32,28000,52000,11,5));
     stonetypes.push(new OreType(59999,"Thin Air",20,24000,28000,72,3));
     stonetypes.push(new OreType(9995,"Air",15,20000,24000,79,3));
-    stonetypes.push(new OreType(995,"Water",10,16000,20000,82,3));
+    stonetypes.push(new OreType(995,"Water",10,16000,20000,82,6));
     stonetypes.push(new OreType(15,"Gravel",5,8000,16000,7,3));
     stonetypes.push(new OreType(5,"Dirt",2,4000,8000,12,3));
     //Players Spawn here
@@ -279,12 +283,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         playerstat.level++;
         playerstat.bank-=cost;
         this.omegga.whisper(speaker, "You are now at level "+playerstat.level+".");
-      }
-    });
-    this.omegga.on('cmd:reload', async (speaker: string) => {
-      if(this.omegga.getPlayer(speaker).isHost()){
-        enviromentData=this.omegga.getEnvironmentData();
-        this.omegga.changeMap("Space");
       }
     });
     this.omegga.on('cmd:mined', async (speaker: string) => {
@@ -521,11 +519,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           );
 
         }else{          
+          if(ore.type!=undefined)
         this.omegga.middlePrint(player.name,colorGreen+ore.type.name+"</>"+colorYellow+"<br> Durability: "+ore.getDurability()+"</><br>Price: $"+(ore.type.price*globalMoneyMultiplier).toFixed(2));
         }
     });
 
-    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','reload','upgradeall','renameore'] };
+    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','upgradeall','renameore'] };
   }
 
   async stop() {
