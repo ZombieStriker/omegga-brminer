@@ -537,6 +537,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           size: size,
           position: position,
           color:color,
+          asset_name_index:0,
+          visibility: true,
           material_index:material_index,
           components:{
               BCD_Interact:{
@@ -551,13 +553,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     };
 
     if(save.bricks.length != 0){
-      let namestring: string="";
-      for(let k of positionalData){
-          namestring+=k.position[0]+"_"+k.position[1]+"_"+k.position[2]+"_"+k.color+"--"
-      }
-      if(Omegga.getSaves["block"+namestring]===null||Omegga.getSaves["block"+namestring]===undefined)
-      Omegga.writeSaveData("block"+namestring,save);
-      Omegga.loadBricks("block"+namestring, {quiet: true, offX:center[0],offY:center[1],offZ:center[2]});
+      Omegga.loadSaveData(save, {quiet: true, offX:center[0],offY:center[1],offZ:center[2]});
     }
   }
 
