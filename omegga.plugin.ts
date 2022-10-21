@@ -1,4 +1,4 @@
-import OmeggaPlugin, { OL, PS, PC, Vector, Brick, WriteSaveObject, OmeggaPlayer } from 'omegga';
+import OmeggaPlugin, { OL, PS, PC, Vector, Brick, WriteSaveObject, OmeggaPlayer} from 'omegga';
 import { PlayerStats } from './playerstats';
 import Ore from './ore'
 import OreType from './oretype'
@@ -81,7 +81,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     oretypes.push(new OreType(10,"Tin",5,-4000000000,4000000000,0,6));
     oretypes.push(new OreType(200000,"FrogInCharium", 4000,4000,20000,12,6));
-    oretypes.push(new OreType(10,"Coal",5,-4000000000,4000000000,0,11));
+    oretypes.push(new OreType(10,"Coal",5,-4000000000,4000000000,11,3));
     oretypes.push(new OreType(20,"Copper",5,-40000,4000,15,6));
     oretypes.push(new OreType(30,"Cobalt",10,-40000,4000,20,6));
     oretypes.push(new OreType(60,"Iron",15,-40000,4000,7,6));
@@ -441,7 +441,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       let ore = null;
       
       // ore generator
-      if(getRandomInt(1000)<1){
+      if(getRandomInt(9000)<1){
         ore = new Ore(blockPos,lotto);
         ores.push(ore);
       }else if(getRandomInt(100)<Math.min(50,-blockPos[2]/7000)){
@@ -540,7 +540,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           material_index:material_index,
           components:{
               BCD_Interact:{
-                  bPlayInteractSound:false,
+                  bPlayInteractSound:true,
                   ConsoleTag:``,
                   Message:''
               }
