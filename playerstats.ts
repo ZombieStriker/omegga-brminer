@@ -1,11 +1,11 @@
 export class PlayerStats{
     name: string;
-    level: number;
-    bank: number;
-    cooldown: number;
-    lavasuit: number;
-    blocksmined: number;
-    lowestY: number;
+    level: number=1;
+    bank: number=0;
+    cooldown: number=0;
+    lavasuit: number=0;
+    blocksmined: number=0;
+    lowestY: number=0;
 
     constructor(name: string, level: number, bank: number, lavasuit: number, lowestY: number, blocksmined: number ){
         this.name=name;

@@ -37,13 +37,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         const pss_bank = await this.store.get("playerStatsObject_"+pla.name+"_bank");
         const pss_level = await this.store.get("playerStatsObject_"+pla.name+"_level");
         const pss_ls = await this.store.get("playerStatsObject_"+pla.name+"_ls");
-        const pss_lm = await this.store.get("playerStatsObject_"+pla.name+"_lm");
-        const pss_bm = await this.store.get("playerStatsObject_"+pla.name+"_bm");
         if(pss_bank === undefined || pss_bank===null){
           playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0,0,0);
           if(pla!=undefined && pla.name!=undefined)
           console.info(`New player '${pla.name}' detected, giving them a playerstats template.`);
         } else {
+          const pss_lm = await this.store.get("playerStatsObject_"+pla.name+"_lm");
+          const pss_bm = await this.store.get("playerStatsObject_"+pla.name+"_bm");
           if(pss_lm===undefined||pss_lm===null){
           playerstats[pla.name] = new PlayerStats(pla.name, pss_level, pss_bank, pss_ls,0,0);
           }else{
@@ -60,13 +60,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       const pss_bank = await this.store.get("playerStatsObject_"+pla.name+"_bank");
       const pss_level = await this.store.get("playerStatsObject_"+pla.name+"_level");
       const pss_ls = await this.store.get("playerStatsObject_"+pla.name+"_ls");
-      const pss_lm = await this.store.get("playerStatsObject_"+pla.name+"_lm");
-      const pss_bm = await this.store.get("playerStatsObject_"+pla.name+"_bm");
       if(pss_bank === undefined || pss_bank===null){
         playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0,0,0);
         if(pla!=undefined && pla.name!=undefined)
         console.info(`New player '${pla.name}' detected, giving them a playerstats template.`);
       } else {
+        const pss_lm = await this.store.get("playerStatsObject_"+pla.name+"_lm");
+        const pss_bm = await this.store.get("playerStatsObject_"+pla.name+"_bm");
         if(pss_lm===undefined||pss_lm===null){
         playerstats[pla.name] = new PlayerStats(pla.name, pss_level, pss_bank, pss_ls,0,0);
         }else{
@@ -126,10 +126,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     //Autosaver 
 
     const autosaver = setInterval(()=>{
+      console.info("Saving PlayerStats for ALL...")
       for(const pss of playerstats){
-        this.store.set("playerStatsObject_"+pss.name+"_bank", pss.bank)
-        this.store.set("playerStatsObject_"+pss.name+"_level", pss.level)
-        this.store.set("playerStatsObject_"+pss.name+"_ls", pss.lavasuit)
+        if(pss!=null && pss != undefined){
+        this.store.set("playerStatsObject_"+pss.name+"_bank", pss.bank);
+        this.store.set("playerStatsObject_"+pss.name+"_level", pss.level);
+        this.store.set("playerStatsObject_"+pss.name+"_ls", pss.lavasuit);
+        this.store.set("playerStatsObject_"+pss.name+"_lm", pss.lowestY);
+        this.store.set("playerStatsObject_"+pss.name+"_bm", pss.blocksmined);
+        }
       }
     },(this.config['autosave_interval']*60000));
     
@@ -147,15 +152,19 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       const pss_bank = await this.store.get("playerStatsObject_"+name+"_bank");
       const pss_level = await this.store.get("playerStatsObject_"+name+"_level");
       const pss_ls = await this.store.get("playerStatsObject_"+name+"_ls");
-      const pss_lm = await this.store.get("playerStatsObject_"+name+"_lm");
-      const pss_bm = await this.store.get("playerStatsObject_"+name+"_bm");
       if(pss_bank === undefined || pss_bank===null){
         playerstats[name] = new PlayerStats(name, 1, 0, 0,0,0)
         console.info(`New player '${name}' has joined, giving them a playerstats template.`)
         return;
       }else{
         if(playerstats[name]!=undefined&&playerstats[name]!=null){
+          const pss_lm = await this.store.get("playerStatsObject_"+name+"_lm");
+          const pss_bm = await this.store.get("playerStatsObject_"+name+"_bm");
+          if(pss_lm===undefined||pss_lm===null){
+            playerstats[name]=new PlayerStats(name, pss_level,pss_bank,pss_ls,0,0);
+          }else{
         playerstats[name]=new PlayerStats(name, pss_level,pss_bank,pss_ls,pss_lm,pss_bm);
+          }
         }
 
       }
@@ -164,9 +173,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       const name = player.name
       console.info("Saving PlayerStats for "+name+"...")
       const pla = playerstats[name];
+      if(pla!=null){
       this.store.set("playerStatsObject_"+name+"_bank",pla.bank);
       this.store.set("playerStatsObject_"+name+"_level",pla.level);
       this.store.set("playerStatsObject_"+name+"_ls",pla.lavasuit);
+      this.store.set("playerStatsObject_"+name+"_lm", pla.lowestY);
+      this.store.set("playerStatsObject_"+name+"_bm", pla.blocksmined);
+      }
     })
 
 
@@ -189,7 +202,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       });
       for(const pla of playerArray){
         const playerstat = playerstats[pla]
-        this.omegga.whisper(speaker, "-"+pla+" : $"+playerstat.bank+" || Level: "+playerstat.level+" || Blocks mined:"+playerstat.blocksmined);
+        if(playerstat!=undefined){
+          this.omegga.whisper(speaker, "-"+pla+" : $"+playerstat.bank+" || Level: "+playerstat.level+" || Blocks mined:"+playerstat.blocksmined);
+        }else{
+          this.omegga.whisper(speaker, "-"+pla+" : $ERROR");
+        }
       }
     }); 
     this.omegga.on('cmd:upgrade', async (speaker: string) => {
@@ -397,7 +414,16 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async stop() {
-
+    console.info("Saving PlayerStats for ALL...")
+    for(const pss of playerstats){
+      if(pss!=null && pss != undefined){
+      this.store.set("playerStatsObject_"+pss.name+"_bank", pss.bank)
+      this.store.set("playerStatsObject_"+pss.name+"_level", pss.level)
+      this.store.set("playerStatsObject_"+pss.name+"_ls", pss.lavasuit)
+      this.store.set("playerStatsObject_"+pss.name+"_lm", pss.lowestY)
+      this.store.set("playerStatsObject_"+pss.name+"_bm", pss.blocksmined)
+      }
+    }
   }
   //Fat Function should be split for organization.
   /**
@@ -422,15 +448,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           ores.push(ore);
       }else if(getRandomInt(100)<4){
         let oret = oretypes[getRandomInt(oretypes.length)];
-        while(oret.minY > blockPos[2] || oret.maxY<blockPos[2]){
+        let tries = 0;
+        while((oret.minY > blockPos[2] || oret.maxY<blockPos[2])&&tries<1000){
           oret = oretypes[getRandomInt(oretypes.length)];
+          tries++;
         }
           ore = new Ore(blockPos,oret);
           ores.push(ore);
       }else{
         let j = 0;
         let stone = stonetypes[j];
-        while(stone.minY > blockPos[2] || stone.maxY<blockPos[2]){
+        while((stone.minY > blockPos[2] || stone.maxY<blockPos[2])&&j < stonetypes.length){
           j++;
           stone = stonetypes[j];
         }
