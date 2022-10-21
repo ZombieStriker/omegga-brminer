@@ -1,25 +1,30 @@
 import OmeggaPlugin, { OL, PS, PC, Vector, Brick, WriteSaveObject, OmeggaPlayer} from 'omegga';
 import { PlayerStats } from './playerstats';
 import Ore from './ore'
-import OreType from './oretype'
+import OreType, { PlayerOre } from './oretype'
 import { Chunk } from './chunk';
 
 type Config = { foo: string };
 
-const CHUNK_SIZE = 51200;
+const CHUNK_SIZE = 11200;
 const BRICK_SIZE = 20;
 let spots: Chunk[] = []; //An array of all positions that have been generated
-let ores: Ore[] = []; //An array of all current ores loaded in memory.
+let recentBlocks: {[index:string]: number} = {};
 //let playerstats : {[index:string]: PlayerStats} = {}; //An Object containing all player data
 let playerstats : PlayerStats[] = []; //An Object containing all player data
 let oretypes: OreType[] = [];
 let stonetypes: OreType[]=[];
 let lava: OreType = new OreType(1,"Lava",0,-5000000,5000,13,5);
-let lotto: OreType = new OreType(15000,"LottoBlock",0,-5000000,5000,18,5);
+let lotto: OreType = new OreType(15000,"LottoBlock",0,-5000000,5000,38,5);
 let globalMoneyMultiplier = 1;
 let globalMoneyMultiplierTimer = 0;
 let rlcbmium=null;
 let blocksave = false;
+let enviromentData = null;
+
+const colorGreen = "<color=\"0ccf00\">";
+const colorYellow = "<color=\"00ffff\">";
+const colorRed = "<color=\"ff3303\">";
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -55,7 +60,24 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.omegga.clearAllBricks();
       this.omegga.loadBricks("brminer")
       spots=[];
-      ores=[];
+    });
+    this.omegga.on('mapchange',async()=>{
+      for(const player of this.omegga.getPlayers()){
+        const pla = playerstats[player.name];
+        if(pla!=null){
+          const name = pla.name;
+          console.info("Saving PlayerStats for "+name+"...")
+        this.store.set("playerStatsObject_"+name+"_bank",pla.bank);
+        this.store.set("playerStatsObject_"+name+"_level",pla.level);
+        this.store.set("playerStatsObject_"+name+"_ls",pla.lavasuit);
+        this.store.set("playerStatsObject_"+name+"_lm", pla.lowestY);
+        this.store.set("playerStatsObject_"+name+"_bm", pla.blocksmined);
+        }
+      }
+      this.omegga.clearAllBricks();
+      this.omegga.loadBricks("brminer")
+      spots=[];
+      this.omegga.loadEnvironmentData(enviromentData);
     });
     for(const pla of this.omegga.getPlayers()){
       const pss_bank = await this.store.get("playerStatsObject_"+pla.name+"_bank");
@@ -95,7 +117,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     oretypes.push(new OreType(4100,"Platinum",425,-160000,-4000,20,3));
     oretypes.push(new OreType(5100,"Beskar",525,-160000,-4000,11,6));
     oretypes.push(new OreType(10100,"Uranium",1025,-160000,-4000,17,5));
-    oretypes.push(new OreType(50500,"Graphite",5000,-32000,-4000,37,3));
+    oretypes.push(new OreType(500,"Graphite",110,-32000,-4000,8,3));
     oretypes.push(new OreType(200000,"Flavium", 20000,-320000,-16000,12,6));
     oretypes.push(rlcbmium=new OreType(101000,"rlcbmium",10100,-320000,-16000,23,4));
     oretypes.push(new OreType(501000,"Aware",50100,-320000,-16000,32,6));
@@ -115,10 +137,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     //Players Spawn here
     stonetypes.push(new OreType(5,"Stone",1,-4000,4000,4,3));
     stonetypes.push(new OreType(15,"Hard Stone",2,-8000,-4000,5,3));
-    stonetypes.push(new OreType(115,"Harder Stone",4,-12000,-8000,5,3));
-    stonetypes.push(new OreType(1115,"Hardest Stone",8,-16000,-12000,6,3));
-    stonetypes.push(new OreType(11115,"Deepslate",16,-20000,-16000,7,3));
-    stonetypes.push(new OreType(22225,"Bedrock",32,-24000,-20000,8,3));
+    stonetypes.push(new OreType(115,"Harder Stone",4,-12000,-8000,6,3));
+    stonetypes.push(new OreType(1115,"Hardest Stone",8,-16000,-12000,7,3));
+    stonetypes.push(new OreType(11115,"Deepslate",16,-20000,-16000,8,3));
+    stonetypes.push(new OreType(22225,"Bedrock",32,-24000,-20000,9,3));
     stonetypes.push(new OreType(33335,"Granite",64,-30000,-24000,12,3));
     stonetypes.push(new OreType(55555,"Condensed Stone",128,-40000,-30000,7,3));
     stonetypes.push(new OreType(66666,"Hardened Stone Squared",256,-50000,-40000,8,3));
@@ -164,7 +186,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           if(pss_lm===undefined||pss_lm===null){
             playerstats[name]=new PlayerStats(name, pss_level,pss_bank,pss_ls,0,0);
           }else{
-        playerstats[name]=new PlayerStats(name, pss_level,pss_bank,pss_ls,pss_lm,pss_bm);
+           playerstats[name]=new PlayerStats(name, pss_level,pss_bank,pss_ls,pss_lm,pss_bm);
           }
         }
 
@@ -183,6 +205,36 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
     })
 
+
+    this.omegga.on('cmd:renameore', async (speaker: string, name: string) => {
+      let playerstat = playerstats[speaker];
+      if(name===undefined){
+        name = playerstat.name+"ium";
+      }
+      for(const ore of oretypes){
+        if(ore instanceof PlayerOre && 
+          ore.owner === playerstat.name){
+            ore.name = name;
+            this.omegga.whisper(speaker, "Renamed your ore to "+name);
+            break;
+          }
+      }
+
+  });
+
+    this.omegga.on('cmd:buygun', async (speaker: string) => {
+      let playerstat = playerstats[speaker];
+      let cost = 1000;
+      if(playerstat.bank<cost){
+        this.omegga.whisper(speaker, "You need atleast $"+cost+" to buy a gun. You have $"+playerstat.bank);
+        return;
+      }else{
+        this.omegga.getPlayer(speaker).giveItem('Weapon_MagnumPistol')
+        playerstat.bank-=cost;
+        this.omegga.whisper(speaker, "You are now have a gun.");
+      }
+
+  });
 
 
     this.omegga.on('cmd:bank', async (speaker: string) => {
@@ -203,8 +255,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       });
       for(const pla of playerArray){
         const playerstat = playerstats[pla]
+        if(playerstat===undefined){
+          return;
+        }
         if(playerstat!=undefined){
-          this.omegga.whisper(speaker, "-"+pla+" : $"+playerstat.bank+" || Level: "+playerstat.level+" || Blocks mined:"+playerstat.blocksmined);
+          const price = (+playerstat.bank).toFixed(2)
+          this.omegga.whisper(speaker, "-"+pla+" : $"+price+" || Level: "+playerstat.level+" || Blocks mined:"+playerstat.blocksmined);
         }else{
           this.omegga.whisper(speaker, "-"+pla+" : $ERROR");
         }
@@ -212,6 +268,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     }); 
     this.omegga.on('cmd:upgrade', async (speaker: string) => {
       let playerstat = playerstats[speaker]
+      if(playerstat===undefined){
+        return;
+      }
       let cost: number = (playerstat.level*5)+75;
       if(playerstat.bank<cost){
         this.omegga.whisper(speaker, "You need atleast $"+cost+" to upgrade your pick. You have $"+playerstat.bank);
@@ -220,6 +279,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         playerstat.level++;
         playerstat.bank-=cost;
         this.omegga.whisper(speaker, "You are now at level "+playerstat.level+".");
+      }
+    });
+    this.omegga.on('cmd:reload', async (speaker: string) => {
+      if(this.omegga.getPlayer(speaker).isHost()){
+        enviromentData=this.omegga.getEnvironmentData();
+        this.omegga.changeMap("Space");
       }
     });
     this.omegga.on('cmd:mined', async (speaker: string) => {
@@ -234,6 +299,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         this.omegga.whisper(speaker, "/buyhs - Buys a heat suit so you can mine lava");
         this.omegga.whisper(speaker, "/bank - See how much money you currently have.");
         this.omegga.whisper(speaker, "/top - See how much money/levels everyone online has.");
+        this.omegga.whisper(speaker, "/buygun - Buy a gun, just like if you were in the USA.");
+        this.omegga.whisper(speaker, "/renameore (name) - renames your ore to that name.");
     });
 
     this.omegga.on('cmd:buyhs', async (speaker: string) => {
@@ -249,6 +316,20 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
 
     this.omegga.on('cmd:upgrademax', async (speaker: string) => {
+      let playerstat = playerstats[speaker]
+      let cost: number = (playerstat.level*5)+75;
+      if(playerstat.bank<cost){
+        this.omegga.whisper(speaker, "You need atleast $"+cost+" to upgrade your pick. You have $"+playerstat.bank);
+        return;
+      }else{
+        while(playerstat.bank>=cost){
+        playerstat.level++;
+        playerstat.bank-=cost;
+        }
+        this.omegga.whisper(speaker, "You are now at level "+playerstat.level+".");
+      }
+    });
+    this.omegga.on('cmd:upgradeall', async (speaker: string) => {
       let playerstat = playerstats[speaker]
       let cost: number = (playerstat.level*5)+75;
       if(playerstat.bank<cost){
@@ -291,8 +372,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
               playerstat.blocksmined++;
               if(ore.type.price>0){
-              this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+(ore.type.price));
-              playerstat.bank+=(ore.type.price);
+              this.omegga.middlePrint(player.name,colorGreen+ore.type.name+"</> <br> "+colorYellow+"Earned:</> $"+(ore.type.price*globalMoneyMultiplier).toFixed(2));
+              playerstat.bank+=(ore.type.price*globalMoneyMultiplier);
               }
               
         switch (ore.type) {
@@ -316,21 +397,53 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             let recieved = playerstat.bank;
             recieved*=Math.random();
             playerstat.bank-=recieved;
-            this.omegga.whisper(playerstat.name,"You has lost $"+recieved+".");
+            this.omegga.whisper(playerstat.name,"You have lost $"+recieved+".");
 
           }else if(slot<30){
             let recieved = playerstat.bank;
             recieved*=Math.random();
             playerstat.bank+=recieved;
             this.omegga.whisper(playerstat.name,"You have recieved $"+recieved+".");
+
+          }else if(slot<35){
+              let recieved = playerstat.level;
+              recieved*=Math.random();
+              playerstat.level-=recieved;
+              this.omegga.whisper(playerstat.name,"You have lost "+recieved+" levels.");
+  
+            }else if(slot<50){
+              let recieved = playerstat.level;
+              recieved*=Math.random();
+              playerstat.level+=recieved;
+              this.omegga.whisper(playerstat.name,"You have recieved "+recieved+" level.");
+              
             
 
-          }else if (slot<45){
-            globalMoneyMultiplier-=Math.random();
-            this.omegga.broadcast(playerstat.name+" mined a lotto-block and lowered the multiplier to "+globalMoneyMultiplier);
-          }else if (slot < 68){
-            globalMoneyMultiplier+=Math.random();
-            this.omegga.broadcast(playerstat.name+" mined a lotto-block and raised the multiplier to "+globalMoneyMultiplier);
+          }else if (slot<60){
+            globalMoneyMultiplier-=+Math.random();
+            this.omegga.broadcast(colorRed+playerstat.name+" mined a lotto-block and lowered the multiplier to "+globalMoneyMultiplier.toFixed(2)+"</>");
+          }else if (slot < 88){
+            globalMoneyMultiplier+=+Math.random();
+            this.omegga.broadcast(colorYellow+playerstat.name+" mined a lotto-block and raised the multiplier to "+globalMoneyMultiplier.toFixed(2)+"</>");
+          }else if (slot < 90){
+            let found = null;
+            for(let ore of oretypes){
+              if(ore instanceof PlayerOre && ore.owner === player.name){
+                found = ore;
+                break;
+              }
+            }
+            if(found==null){
+            let miny = (-getRandomInt(5))*4000;
+            let playerore = new PlayerOre(getRandomInt(playerstat.level*100),playerstat.name+"ium",getRandomInt(playerstat.bank),miny,miny+4000,getRandomInt(12*6),3,playerstat.name);
+            oretypes.push(playerore);
+            this.omegga.broadcast(colorYellow+playerstat.name+" has found "+playerore.name+", normally found betweem "+miny+" and"+(+miny+4000)+"</>");
+            }else{
+              let raise =getRandomInt(playerstat.bank)
+              found.price+=raise;
+              this.omegga.broadcast(colorYellow+found.name+" price has been raised to $"+found.price+"("+raise+") </>");
+
+            }
           }else{
             this.omegga.broadcast(playerstat.name+" mined a lotto-block that did nothing!");
           }
@@ -401,28 +514,29 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             chunk.spots.push(z2);
           }
           this.genOre(positionArray,position);
+          let c = getChunk(position[0],position[1],position[2]);
+          c.ores.splice(c.ores.indexOf(ore));
           Omegga.writeln(
             `Bricks.ClearRegion ${position.join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
           );
 
         }else{          
-        this.omegga.middlePrint(player.name,ore.type.name+" || Durability: "+ore.getDurability());
+        this.omegga.middlePrint(player.name,colorGreen+ore.type.name+"</>"+colorYellow+"<br> Durability: "+ore.getDurability()+"</><br>Price: $"+(ore.type.price*globalMoneyMultiplier).toFixed(2));
         }
     });
 
-
-    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs'] };
+    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','reload','upgradeall','renameore'] };
   }
 
   async stop() {
     console.info("Saving PlayerStats for ALL...")
     for(const pss of playerstats){
       if(pss!=null && pss != undefined){
-      this.store.set("playerStatsObject_"+pss.name+"_bank", pss.bank)
-      this.store.set("playerStatsObject_"+pss.name+"_level", pss.level)
-      this.store.set("playerStatsObject_"+pss.name+"_ls", pss.lavasuit)
-      this.store.set("playerStatsObject_"+pss.name+"_lm", pss.lowestY)
-      this.store.set("playerStatsObject_"+pss.name+"_bm", pss.blocksmined)
+      await Promise.all([this.store.set("playerStatsObject_"+pss.name+"_level", pss.level)
+       , this.store.set("playerStatsObject_"+pss.name+"_ls", pss.lavasuit)
+       ,  this.store.set("playerStatsObject_"+pss.name+"_lm", pss.lowestY)
+       , this.store.set("playerStatsObject_"+pss.name+"_bm", pss.blocksmined)
+      ,  this.store.set("playerStatsObject_"+pss.name+"_bank", pss.bank)])
       }
     }
   }
@@ -443,10 +557,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       // ore generator
       if(getRandomInt(9000)<1){
         ore = new Ore(blockPos,lotto);
-        ores.push(ore);
+        getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }else if(getRandomInt(100)<Math.min(50,-blockPos[2]/7000)){
           ore = new Ore(blockPos,lava);
-          ores.push(ore);
+          getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }else if(getRandomInt(100)<4){
         let oret = oretypes[getRandomInt(oretypes.length)];
         let tries = 0;
@@ -455,7 +569,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           tries++;
         }
           ore = new Ore(blockPos,oret);
-          ores.push(ore);
+          getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }else{
         let j = 0;
         let stone = stonetypes[j];
@@ -464,7 +578,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           stone = stonetypes[j];
         }
         ore = new Ore(blockPos,stone);
-        ores.push(ore);
+        getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }
       positionalData.push({
         position:[pos[0]-center[0],pos[1]-center[1],pos[2]-center[2]],
@@ -540,7 +654,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           material_index:material_index,
           components:{
               BCD_Interact:{
-                  bPlayInteractSound:true,
+                  bPlayInteractSound:false,
                   ConsoleTag:``,
                   Message:''
               }
@@ -557,8 +671,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
 
   async getOre(position: Vector) {
-    for (let index = 0; index < ores.length; index++) {
-      let element = ores[index];
+    let c = getChunk(position[0],position[1],position[2]);
+    for (let index = 0; index < c.ores.length; index++) {
+      let element = c.ores[index];
       if(element.location[0] === position[0]){
         if(element.location[1] === position[1]){
           if(element.location[2] === position[2]){

@@ -27,3 +27,12 @@ export default class Ore{
         this.price = price;
     }
 }
+
+export class PlayerOre extends Ore{
+    owner: string;
+
+    constructor(durability: number, name: string, price: number, miny: number, maxy: number, color: number, material: number, owner: string){
+        super(durability,name,price,miny,maxy,color,material);
+        this.owner = owner;
+    }
+}
