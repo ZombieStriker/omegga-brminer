@@ -537,15 +537,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           size: size,
           position: position,
           color:color,
-          asset_name_index:0,
-          visibility: true,
           material_index:material_index,
           components:{
               BCD_Interact:{
-                  bPlayInteractSound:true,
+                  bPlayInteractSound:false,
                   ConsoleTag:``,
                   Message:''
-              },
+              }
           }
           
         })
