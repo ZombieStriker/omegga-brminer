@@ -19,6 +19,7 @@ let lotto: OreType = new OreType(15000,"LottoBlock",0,-5000000,5000,18,5);
 let globalMoneyMultiplier = 1;
 let globalMoneyMultiplierTimer = 0;
 let rlcbmium=null;
+let blocksave = false;
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -136,7 +137,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         this.store.set("playerStatsObject_"+pss.name+"_bm", pss.blocksmined);
         }
       }
-    },(this.config['autosave_interval']*60000));
+    },(this.config['autosave-interval']*60000));
     
     const globalMoneyMultiplierTimerInterval = setInterval(()=>{
       globalMoneyMultiplierTimer--;
@@ -279,7 +280,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
         let ore = await this.getOre(position);
         if(ore==null){
-          await this.genOre([position]);
+          await this.genOre([position],position);
           ore = await this.getOre(position);
         }
         
@@ -290,8 +291,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
               playerstat.blocksmined++;
               if(ore.type.price>0){
-              this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+(ore.type.price*globalMoneyMultiplier));
-              playerstat.bank+=(ore.type.price*globalMoneyMultiplier);
+              this.omegga.middlePrint(player.name,ore.type.name+" || Earned: $"+(ore.type.price));
+              playerstat.bank+=(ore.type.price);
               }
               
         switch (ore.type) {
@@ -399,7 +400,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             positionArray.push([position[0],position[1],position[2]-40])
             chunk.spots.push(z2);
           }
-          this.genOre(positionArray);
+          this.genOre(positionArray,position);
           Omegga.writeln(
             `Bricks.ClearRegion ${position.join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
           );
@@ -430,7 +431,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
    * Generates ore to the memory arrays / Loads brickData.
    * @param posArray
    */
-  genOre(posArray: Array<Vector>):void{
+  genOre(posArray: Array<Vector>, center: Vector):void{
     let positionalData = [];
 
     for(let i = 0; i < posArray.length; i++){
@@ -466,12 +467,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         ores.push(ore);
       }
       positionalData.push({
-        position:pos,
+        position:[pos[0]-center[0],pos[1]-center[1],pos[2]-center[2]],
         size:[BRICK_SIZE,BRICK_SIZE,BRICK_SIZE],
         color:ore.type.color,
         material_index:ore.type.material
       })
-    };
+    }
 
     const publicUser = {
       id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
@@ -552,9 +553,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     };
 
     if(save.bricks.length != 0){
-      Omegga.loadSaveData(save, {quiet: true});
+      Omegga.writeSaveData("block",save);
+      Omegga.loadBricks("block", {quiet: true, offX:center[0],offY:center[1],offZ:center[2]});
     }
   }
+
 
   async getOre(position: Vector) {
     for (let index = 0; index < ores.length; index++) {
