@@ -479,9 +479,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       name: 'Generator',
     };
   
-    let save:WriteSaveObject;
-
-    save = {
+    const save:WriteSaveObject = {
       author: {
         id: publicUser.id,
         name: 'TypeScript',
@@ -553,8 +551,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     };
 
     if(save.bricks.length != 0){
-      Omegga.writeSaveData("block",save);
-      Omegga.loadBricks("block", {quiet: true, offX:center[0],offY:center[1],offZ:center[2]});
+      let namestring: string="";
+      for(let k of positionalData){
+          namestring+=k.position[0]+"_"+k.position[1]+"_"+k.position[2]+"_"+k.color+"--"
+      }
+      if(Omegga.getSaves["block"+namestring]===null||Omegga.getSaves["block"+namestring]===undefined)
+      Omegga.writeSaveData("block"+namestring,save);
+      Omegga.loadBricks("block"+namestring, {quiet: true, offX:center[0],offY:center[1],offZ:center[2]});
     }
   }
 
