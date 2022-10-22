@@ -77,7 +77,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.omegga.clearAllBricks();
       this.omegga.loadBricks("brminer")
       spots=[];
-      this.omegga.loadEnvironmentData(enviromentData);
     });
     for(const pla of this.omegga.getPlayers()){
       const pss_bank = await this.store.get("playerStatsObject_"+pla.name+"_bank");
@@ -98,8 +97,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
     }
     this.omegga.clearAllBricks();
-    this.omegga.loadBricks("brminer")
-
+    this.omegga.loadBricks("brminer");
 
     oretypes.push(new OreType(10,"Tin",5,-4000000000,4000000000,0,6));
     oretypes.push(new OreType(2000,"Worm", 400,4000,20000,44,3));
@@ -164,6 +162,37 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
       }
     },(this.config['autosave-interval']*60000));
+
+    const restartChecker = setInterval(()=>{
+      let blocksMined = 0;
+      for(let c  of spots){
+        blocksMined+=c.spots.length;
+      }
+      if(blocksMined>300000){
+        this.omegga.broadcast("Surpassed 300,000 bricks mined. Restarting...");
+        setTimeout(()=>{          
+      for(const player of this.omegga.getPlayers()){
+        const pla = playerstats[player.name];
+        
+        if(pla!=null){
+          const name = pla.name;
+          console.info("Saving PlayerStats for "+name+"...")
+        this.store.set("playerStatsObject_"+name+"_bank",pla.bank);
+        this.store.set("playerStatsObject_"+name+"_level",pla.level);
+        this.store.set("playerStatsObject_"+name+"_ls",pla.lavasuit);
+        this.store.set("playerStatsObject_"+name+"_lm", pla.lowestY);
+        this.store.set("playerStatsObject_"+name+"_bm", pla.blocksmined);
+        }
+        this.omegga.getPlayer(pla.name).kill();
+      }
+      this.omegga.clearAllBricks();
+      this.omegga.loadBricks("brminer")
+      spots=[];
+        },5000);
+      }else{
+        this.omegga.broadcast(blocksMined+"/300,000 bricks mined.")
+      }
+    },5*60000);
     
     const globalMoneyMultiplierTimerInterval = setInterval(()=>{
       globalMoneyMultiplierTimer--;
@@ -209,6 +238,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
     })
 
+
+    this.omegga.on('cmd:stats', async (speaker: string) => {
+      let playerstat = playerstats[speaker];
+      if(playerstat){
+        const pos = await this.omegga.getPlayer(playerstat.name).getPosition();
+        this.omegga.whisper(playerstat.name,"Level="+playerstat.level+" || heat suits="+playerstat.lavasuit+" Position x="+pos[0]+" y="+pos.[1]+" z="+pos[2]);
+      }
+
+  });
 
     this.omegga.on('cmd:renameore', async (speaker: string, name: string) => {
       let playerstat = playerstats[speaker];
@@ -299,6 +337,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         this.omegga.whisper(speaker, "/top - See how much money/levels everyone online has.");
         this.omegga.whisper(speaker, "/buygun - Buy a gun, just like if you were in the USA.");
         this.omegga.whisper(speaker, "/renameore (name) - renames your ore to that name.");
+        this.omegga.whisper(speaker, "/stats - Shows your stats");
     });
 
     this.omegga.on('cmd:buyhs', async (speaker: string) => {
@@ -394,26 +433,26 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           if(slot<10){
             let recieved = playerstat.bank;
             recieved*=Math.random();
-            playerstat.bank-=recieved;
-            this.omegga.whisper(playerstat.name,"You have lost $"+recieved+".");
+            playerstat.bank-=Math.floor(recieved);
+            this.omegga.whisper(playerstat.name,"You have lost $"+Math.floor(recieved)+".");
 
           }else if(slot<30){
             let recieved = playerstat.bank;
             recieved*=Math.random();
-            playerstat.bank+=recieved;
-            this.omegga.whisper(playerstat.name,"You have recieved $"+recieved+".");
+            playerstat.bank+=Math.floor(recieved);
+            this.omegga.whisper(playerstat.name,"You have recieved $"+Math.floor(recieved)+".");
 
           }else if(slot<35){
               let recieved = playerstat.level;
               recieved*=Math.random();
-              playerstat.level-=recieved;
-              this.omegga.whisper(playerstat.name,"You have lost "+recieved+" levels.");
+              playerstat.level-=Math.floor(recieved);
+              this.omegga.whisper(playerstat.name,"You have lost "+Math.floor(recieved)+" levels.");
   
             }else if(slot<50){
               let recieved = playerstat.level;
               recieved*=Math.random();
-              playerstat.level+=recieved;
-              this.omegga.whisper(playerstat.name,"You have recieved "+recieved+" level.");
+              playerstat.level+=Math.floor(recieved);
+              this.omegga.whisper(playerstat.name,"You have recieved "+Math.floor(recieved)+" level.");
               
             
 
@@ -524,7 +563,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
     });
 
-    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','upgradeall','renameore'] };
+    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','upgradeall','renameore','stats'] };
   }
 
   async stop() {
