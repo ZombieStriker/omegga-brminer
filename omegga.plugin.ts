@@ -8,7 +8,7 @@ type Config = { foo: string };
 
 const BRICK_SIZE = 20;
 const CHUNK_SIZE = BRICK_SIZE*64;
-let spots: Chunk[] = []; //An array of all positions that have been generated
+let spots={}; //An array of all positions that have been generated
 let recentBlocks: {[index:string]: number} = {};
 //let playerstats : {[index:string]: PlayerStats} = {}; //An Object containing all player data
 let playerstats : PlayerStats[] = []; //An Object containing all player data
@@ -100,11 +100,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga.loadBricks("brminer");
 
     oretypes.push(new OreType(10,"Tin",5,-4000000000,4000000000,0,6));
+    oretypes.push(new OreType(80000,"Altiar 4", 8000,28000,52000,15,3));
+    oretypes.push(new OreType(80000,"Klaatu", 8000,28000,52000,49,3));
     oretypes.push(new OreType(2000,"Worm", 400,4000,20000,44,3));
     oretypes.push(new OreType(2000,"Pebbles", 400,4000,20000,1,3));
     oretypes.push(new OreType(2500,"Pipes", 250,4000,20000,23,3));
     oretypes.push(new OreType(9000,"Stuff", 900,4000,20000,64,3));
-    oretypes.push(new OreType(20000,"FrogInCharium", 4000,4000,20000,12,6));
+    oretypes.push(new OreType(2000,"FrogInCharium", 400,4000,20000,12,6));
+    oretypes.push(new OreType(90000,"DingoAnanasium", 9000,20000,40000,15,6));
+    oretypes.push(new OreType(80000,"Tacheyon Nitrox", 8000,20000,28000,4,6));
     oretypes.push(new OreType(10,"Coal",5,-4000000000,4000000000,11,3));
     oretypes.push(new OreType(20,"Copper",5,-40000,4000,15,6));
     oretypes.push(new OreType(30,"Cobalt",10,-40000,4000,20,6));
@@ -122,10 +126,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     oretypes.push(new OreType(500,"Graphite",110,-32000,-4000,8,3));
     oretypes.push(new OreType(200000,"Flavium", 20000,-320000,-16000,12,6));
     oretypes.push(rlcbmium=new OreType(101000,"rlcbmium",10100,-320000,-16000,23,4));
+    oretypes.push(new OreType(3000000,"<emoji>egg</emoji>",300100,-320000,-16000,1,6));
     oretypes.push(new OreType(501000,"Aware",50100,-320000,-16000,32,6));
     oretypes.push(new OreType(1001000,"Cakium",100100,-640000,-32000,37,6));
     oretypes.push(new OreType(5005000,"Simulatium",500100,-640000,-32000,37,7));
     oretypes.push(new OreType(101000000,"Bobcatiumm",10100100,-640000,-32000,24,7));
+    oretypes.push(new OreType(20100000,"ATM Machine",2210000,-640000,-32000,66,3));
+    oretypes.push(new OreType(40100000,"Titanium Bonds",4010000,-640000,-32000,2,3));
 
 
 
@@ -165,8 +172,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     const restartChecker = setInterval(()=>{
       let blocksMined = 0;
-      for(let c1  of spots){
-            blocksMined+= c1.spots.length;
+      for(let c1  of Object.keys(spots)){
+            blocksMined+= spots[`${c1}`].length;
       }
       if(blocksMined>300000){
         this.omegga.broadcast("Surpassed 300,000 bricks mined. Restarting...");
@@ -256,8 +263,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga.on('cmd:stats', async (speaker: string) => {
       let playerstat = playerstats[speaker];
       if(playerstat){
+        try{
         const pos = await this.omegga.getPlayer(playerstat.name).getPosition();
         this.omegga.whisper(playerstat.name,"Level="+playerstat.level+" || heat suits="+playerstat.lavasuit+" Position x="+pos[0]+" y="+pos[1]+" z="+pos[2]);
+        }catch(error){
+          console.error(error);
+        }
       }
 
   });
@@ -359,19 +370,24 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         this.omegga.whisper(speaker, "/save - Manually saves your progress in case of crash.");
     });
 
-    this.omegga.on('cmd:buyhs', async (speaker: string, num: number) => {
+    this.omegga.on('cmd:buyhs', async (speaker: string, num: any) => {
       const playerstat = playerstats[speaker]
-      if(!num)
+      num = +num;
+      if(num)
       num=1;
       if(num<1)
       num=1;
+      num = Math.floor(num);
       if(playerstat.bank<100*num){
-        this.omegga.whisper(speaker, "You need atleast $100 to buy a heat suit. You have $"+playerstat.bank);
+        this.omegga.whisper(speaker, "You need atleast $"+num*100+" to buy "+num+" heat suits. You have $"+playerstat.bank);
         return;
       }else{
         playerstat.lavasuit+=num;
         playerstat.bank-=100*num;
         this.omegga.whisper(speaker, "You now have "+playerstat.lavasuit+" heat suits.");
+        if(playerstat.lavasuit instanceof String){
+          playerstat.lavasuit = + playerstat.lavasuit;
+        }
       }
     });
 
@@ -405,29 +421,30 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     });
     this.omegga.on('interact',
       async ({ player, position }) => {
+        try{
         let playerstat = playerstats[player.name]
         
       const name = player.name
-      if(playerstat === undefined){
+      if(!playerstat){
         playerstats[name] = new PlayerStats(name, 1, 0, 0,0,0)
         console.info(`New player '${name}' has joined, giving them a playerstats template.`)
         return;
       }
-        if(Date.now()-playerstat.cooldown<100){
+        if(Date.now()-playerstat.cooldown<25){
+          this.omegga.whisper(player.name,"You are clicking too fast! Clickingt fast lags the game for everyone!");
             return;
         }
         playerstat.cooldown=Date.now();
 
         let ore = await this.getOre(position);
-        if(ore==null){
+        if(ore===undefined||ore==null){
           await this.genOre([position],position);
           ore = await this.getOre(position);
         }
         
 
         //This code is always expected to work, however if a user attempts to access a brick that doesn't exist, instead of an unhandled exception crash, we log it and mine the brick.
-        try {
-          if(ore!=null){
+          if(ore){
             if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
               playerstat.blocksmined++;
               if(ore.type.price>0){
@@ -517,9 +534,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             }
           }
           ore.setDurability(ore.getDurability()-playerstat.level);
-          }
-        } catch (error) {
-          console.error(`Brick at position (${position[0]},${position[1]},${position[2]}) doesn't exist!`);
         }
 
         
@@ -580,9 +594,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           );
 
         }else{          
-          if(ore.type!=undefined)
+          if(ore.type)
         this.omegga.middlePrint(player.name,colorGreen+ore.type.name+"</>"+colorYellow+"<br> Durability: "+ore.getDurability()+"</><br>Price: $"+(ore.type.price*globalMoneyMultiplier).toFixed(2));
         }
+      }catch(error){
+        console.error(error);
+      }
     });
 
     return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','upgradeall','renameore','stats','save'] };
@@ -759,21 +776,39 @@ function getRandomInt(max: number) {
 }
 
 function getChunk(x: number, y: number, z: number){
-  for(const chunk of spots){
+  let index = 0;
+  let xx = x/CHUNK_SIZE;
+  let yy = y/CHUNK_SIZE;
+  let zz = z/CHUNK_SIZE;
+
+  /*for(const chunk of spots){
+    index++;
     if(x/CHUNK_SIZE==chunk.x){
       if(y/CHUNK_SIZE==chunk.y){
         if(z/CHUNK_SIZE==chunk.z){
-          return chunk;
+          if(index > spots.length/2){
+            
+      spots.sort(function(a, b) {
+        if(a && b){
+          return b.lastmined - a.lastmined;
         }
+        return 0;
+      });
+          }
+          chunk.lastmined=Date.now();*/
+          let b = spots[`${xx}.${zz}.${yy}`];
+          if(b)
+          return b;
+        /*}
       }
     }
-  }
+  }*/
   /*let chunk = spots[x/CHUNK_SIZE][y/CHUNK_SIZE][z/CHUNK_SIZE];
   if(chunk)
     return chunk;*/
   let c = new Chunk(x/CHUNK_SIZE,y/CHUNK_SIZE,z/CHUNK_SIZE);
   //spots[x/CHUNK_SIZE][y/CHUNK_SIZE][z/CHUNK_SIZE]=c;
-  spots.push(c);
+  spots[`${xx}.${zz}.${yy}`]=c;
   return c;
 }
 
