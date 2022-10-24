@@ -15,6 +15,7 @@ let playerstats : PlayerStats[] = []; //An Object containing all player data
 let cooldownWarnings: number[] = [];
 let oretypes: OreType[] = [];
 let stonetypes: OreType[]=[];
+let playerOreTypes: OreType[] = []
 let lava: OreType = new OreType(1,"Lava",0,-5000000,5000,13,5);
 let bomb: OreType = new OreType(1,"Bomb",0,-5000000,-5000,13,3);
 let lotto: OreType = new OreType(15000,"LottoBlock",0,-5000000,5000,38,5);
@@ -28,6 +29,11 @@ let drillingDrills: Drill[]=[];
 const colorGreen = "<color=\"0ccf00\">";
 const colorYellow = "<color=\"00ffff\">";
 const colorRed = "<color=\"ff3303\">";
+
+let stone_word_start: string[] = ["Hard","Harder","Super Hard","Dank","Banksy","Poop","Radioactive","Cute","Funny","Stupid","Greggory","Pegg","Angreggy","Unknown","Pizza","Doof","<Error>","LolCatz"];
+let stone_word_end: string[] = ["Stone","Diorite","Andersite","Marble","Quartz","Limestone"];
+let ore_word_start: string[] = ["Blue","Red","Yellow","Green","Pink","Purple","Pegg","Greggory","Omegga","Alpha","<Error>"];
+let ore_word_end: string[] = ["ite","ium"," Bonds"," Lattice"," Goo","ion"," Ions"];
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
@@ -179,8 +185,37 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     stonetypes.push(new OreType(100100000,"Fake Stone",512,-150000,-130000,66,4));
 
     //Autosaver 
+    let pol= await this.store.get("playerores_list");
+    if(pol){
+      for(let ore of pol){
+        let dur=await this.store.get("playerores_"+ore.name+"_durability");
+        let miny=await  this.store.get("playerores_"+ore.name+"_miny");
+        let maxy=await this.store.get("playerores_"+ore.name+"_maxy");
+        let price=await  this.store.get("playerores_"+ore.name+"_price");
+        let color=await  this.store.get("playerores_"+ore.name+"_color");
+        let mat=await  this.store.get("playerores_"+ore.name+"_mat");
+        let owner=await  this.store.get("playerores_"+ore.name+"_owner");
+        
+        let playerore = new PlayerOre(dur,ore,price,miny,maxy,color,mat,owner);
+        oretypes.push(playerore);
+        playerOreTypes.push(playerore);
+        console.log("Loading "+ore.name+".")
+      }
+    }
 
     const autosaver = setInterval(()=>{
+      let playerores_list = [];
+      for(const ore of playerOreTypes){
+        playerores_list.push(ore.name);
+        this.store.set("playerores_"+ore.name+"_durability",ore.durability);
+        this.store.set("playerores_"+ore.name+"_miny",ore.minY);
+        this.store.set("playerores_"+ore.name+"_maxy",ore.maxY);
+        this.store.set("playerores_"+ore.name+"_price",ore.price);
+        this.store.set("playerores_"+ore.name+"_mat",ore.maxY);
+        this.store.set("playerores_"+ore.name+"_color",ore.color);
+        this.store.set("playerores_"+ore.name+"_owner",(ore as PlayerOre).owner);
+      }
+      this.store.set("playerores_list",playerores_list);
       console.info("Saving PlayerStats for ALL...")
       for(const pss of playerstats){
         if(pss){
@@ -402,7 +437,7 @@ if(pla){
       let playerstat = playerstats[speaker];
       if(playerstat){
         const name = playerstat.name
-        console.info("Saving PlayerStats for "+name+"... ["+pla.bank+" "+pla.level+"]")
+        console.info("Saving PlayerStats for "+name+"... ["+playerstat.bank+" "+playerstat.level+"]")
         if( Number.isInteger(playerstat.bank))
         this.store.set("playerStatsObject_"+name+"_bank",playerstat.bank);
         if( Number.isInteger(playerstat.level))
@@ -480,7 +515,7 @@ if(pla){
       }else{
         this.omegga.getPlayer(speaker).giveItem('Weapon_MagnumPistol')
         playerstat.bank-=cost;
-        this.omegga.whisper(speaker, "You are now have a gun.");
+        this.omegga.whisper(speaker, "You now have a gun.");
       }
     }
 
@@ -518,6 +553,15 @@ if(pla){
         }
       }
     }); 
+    this.omegga.on('cmd:upgradecost', async (speaker: string, ) => {
+      let playerstat = playerstats[speaker]
+      if(playerstat===undefined){
+        return;
+      }
+      let cost: number = (Math.pow(playerstat.level,1.3))+25;
+        this.omegga.whisper(speaker, "It costs $"+cost.toFixed(2)+" to upgrade to level "+(playerstat.level+1)+".");
+  
+    });
     this.omegga.on('cmd:upgrade', async (speaker: string, ) => {
       let playerstat = playerstats[speaker]
       if(playerstat===undefined){
@@ -542,6 +586,7 @@ if(pla){
         this.omegga.whisper(speaker, "/? - sends you to this help page");
         this.omegga.whisper(speaker, "/upgrade - Upgrades your pick by one level.");
         this.omegga.whisper(speaker, "/upgrademax - Upgrades your pick by the max amount of levels you can buy");
+        this.omegga.whisper(speaker, "/upgradecost - Shows the cost to upgrade one level.");
         this.omegga.whisper(speaker, "/buyhs - Buys a heat suit so you can mine lava");
         this.omegga.whisper(speaker, "/bank - See how much money you currently have.");
         this.omegga.whisper(speaker, "/top - See how much money/levels everyone online has.");
@@ -606,7 +651,7 @@ if(pla){
         this.mine(player,position);
     });
 
-    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','upgradeall','renameore','stats','save','setlevel','setbank','buydrill'] };
+    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','upgradeall','renameore','stats','save','setlevel','setbank','buydrill','upgradecost'] };
   }
 
   async mine(player: any, position: Vector){
@@ -763,6 +808,7 @@ if(pla){
           let miny = (7-getRandomInt(15))*4000;
           let playerore = new PlayerOre(getRandomInt(playerstat.level*1000),playerstat.name+"ium",getRandomInt(playerstat.bank),miny,miny+4000,getRandomInt(12*6),3,playerstat.name);
           oretypes.push(playerore);
+          playerOreTypes.push(playerore);
           this.omegga.broadcast(colorYellow+playerstat.name+" has found "+playerore.name+", normally found between "+miny+" and "+(+miny+4000)+"</>");
           }else{
             let raise =getRandomInt(playerstat.bank)
@@ -906,20 +952,39 @@ if(pla){
                 ore = new Ore(blockPos,bomb);
                 getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }else if(getRandomInt(100)<4){
-        let oret = oretypes[getRandomInt(oretypes.length)];
+        let j = getRandomInt(oretypes.length);
+        let oret = oretypes[j];
         let tries = 0;
-        while((oret.minY > blockPos[2] || oret.maxY<blockPos[2])&&tries<1000){
-          oret = oretypes[getRandomInt(oretypes.length)];
+        if(oret)
+        while(oret.minY&&oret.maxY&&(oret.minY > blockPos[2] || oret.maxY<blockPos[2])&&tries<1000){
+          oret = oretypes[j];
           tries++;
+          j++;
+          if(!oret)
+          break;
+        }
+
+        if(!oret){
+          let b:boolean = (blockPos[2]>0) as boolean;
+          oret = this.generateNewOre(blockPos[2],blockPos[2],b);
+          oretypes.push(oret);
         }
           ore = new Ore(blockPos,oret);
           getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }else{
         let j = 0;
         let stone = stonetypes[j];
-        while((stone.minY > blockPos[2] || stone.maxY<blockPos[2])&&j < stonetypes.length){
+        if(stone)
+        while(stone.minY&&stone.maxY&&(stone.minY > blockPos[2] || stone.maxY<blockPos[2])&&j < stonetypes.length){
           j++;
           stone = stonetypes[j];
+          if(!stone)
+          break;
+        }
+        if(!stone){
+          let b:boolean = (blockPos[2]>0) as boolean;
+          stone = this.generateNewOre(blockPos[2],blockPos[2],b);
+          stonetypes.push(stone);
         }
         ore = new Ore(blockPos,stone);
         getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
@@ -1027,6 +1092,27 @@ if(pla){
   async clearBricks(center: Vector, extent: Vector){
   }
 
+  generateNewOre(distance:number, miny: number,up:boolean): OreType{
+    let x = ore_word_start[getRandomInt(ore_word_start.length)];
+    let y = ore_word_end[getRandomInt(ore_word_end.length)];
+    let durability = getRandomInt(distance*100);
+    let color = getRandomInt(12*6);
+    let material = 3+getRandomInt(3);
+    if(up)
+    return new OreType(durability,x+y,durability/15,miny,miny+10000,color,material);
+    return new OreType(durability,x+y,durability/15,miny-10000,miny,color,material);
+  }
+
+  generateNewStone(distance:number, miny: number,up:boolean): OreType{
+    let x = stone_word_start[getRandomInt(stone_word_start.length)];
+    let y = stone_word_end[getRandomInt(stone_word_end.length)];
+    let durability = getRandomInt(distance*100);
+    let color = getRandomInt(12*6);
+    let material = 3+getRandomInt(3);
+    if(up)
+    return new OreType(durability,x+y,0,miny,miny+10000,color,material);
+    return new OreType(durability,x+y,0,miny-10000,miny,color,material);
+  }
 
 
 async getOre(position: Vector) {
