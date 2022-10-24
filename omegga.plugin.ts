@@ -3,13 +3,14 @@ import { PlayerStats } from './playerstats';
 import Ore from './ore'
 import OreType, { PlayerOre } from './oretype'
 import { Chunk } from './chunk';
+import Drill, {Directions} from './drill';
 
 type Config = { foo: string };
 
 const BRICK_SIZE = 20;
 const CHUNK_SIZE = BRICK_SIZE*64;
-let spots={}; //An array of all positions that have been generated
-//let playerstats : {[index:string]: PlayerStats} = {}; //An Object containing all player data
+const BRICK_WHOLE = 2*BRICK_SIZE;
+let spots:Chunk[]=[];
 let playerstats : PlayerStats[] = []; //An Object containing all player data
 let cooldownWarnings: number[] = [];
 let oretypes: OreType[] = [];
@@ -20,8 +21,9 @@ let lotto: OreType = new OreType(15000,"LottoBlock",0,-5000000,5000,38,5);
 let globalMoneyMultiplier = 1;
 let globalMoneyMultiplierTimer = 1;
 let rlcbmium=null;
-let blocksave = false;
-let enviromentData = null;
+
+let activeDrills:Drill[] = []
+let drillingDrills: Drill[]=[];
 
 const colorGreen = "<color=\"0ccf00\">";
 const colorYellow = "<color=\"00ffff\">";
@@ -182,7 +184,9 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       console.info("Saving PlayerStats for ALL...")
       for(const pss of playerstats){
         if(pss){
-        this.store.set("playerStatsObject_"+pss.name+"_bank", pss.bank);
+          if( Number.isInteger(pss.bank))
+        this.store.set("playerStatsObject_"+pss.name+"_bank",pss.bank);
+        if( Number.isInteger(pss.level))
         this.store.set("playerStatsObject_"+pss.name+"_level", pss.level);
         this.store.set("playerStatsObject_"+pss.name+"_ls", pss.lavasuit);
         this.store.set("playerStatsObject_"+pss.name+"_lm", pss.lowestY);
@@ -191,11 +195,81 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
     },(this.config['autosave-interval']*60000));
 
+    const drills = setInterval(async ()=>{
+      for(const drill of drillingDrills){
+        if(drill.range<=drill.mined){
+            drillingDrills.splice(drillingDrills.indexOf(drill));
+            continue;
+        }
+        if(drill.position&&drill.position!=null){
+          let position = drill.position;
+        
+        let positionArray:Array<Vector> = [];
+        let x1: string = "x"+(position[0]+40)+"y"+position[1]+"z"+position[2];
+        let chunk = getChunk(position[0]+40,position[1],position[2]);
+        if(chunk.spots.indexOf(x1)==-1){
+          positionArray.push([position[0]+40,position[1],position[2]])
+          chunk.spots.push(x1);
+        }
+        chunk = getChunk(position[0]-40,position[1],position[2]);
+        let x2: string = "x"+(position[0]-40)+"y"+position[1]+"z"+position[2];
+        if(chunk.spots.indexOf(x2)==-1){
+          positionArray.push([position[0]-40,position[1],position[2]])
+          chunk.spots.push(x2);
+        }
+        chunk = getChunk(position[0],position[1]+40,position[2]);
+        let y1: string = "x"+(position[0])+"y"+(position[1]+40)+"z"+position[2];
+        if(chunk.spots.indexOf(y1)==-1){
+          positionArray.push([position[0],position[1]+40,position[2]])
+          chunk.spots.push(y1);
+        }
+        chunk = getChunk(position[0],position[1]-40,position[2]);
+        let y2: string = "x"+(position[0])+"y"+(position[1]-40)+"z"+position[2];
+        if(chunk.spots.indexOf(y2)==-1){
+          positionArray.push([position[0],position[1]-40,position[2]])
+          chunk.spots.push(y2);
+        }
+        chunk = getChunk(position[0],position[1],position[2]+40);
+        let z1: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]+40);
+        if(chunk.spots.indexOf(z1)==-1){
+          positionArray.push([position[0],position[1],position[2]+40])
+          chunk.spots.push(z1);
+        }
+        chunk = getChunk(position[0],position[1],position[2]-40);
+        let z2: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]-40);
+        if(chunk.spots.indexOf(z2)==-1){
+          positionArray.push([position[0],position[1],position[2]-40])
+          chunk.spots.push(z2);
+        }
+        this.genOre(positionArray,position);
+        let c = getChunk(position[0],position[1],position[2]);
+        let ore = await this.getOre(position);
+        c.ores.splice(c.ores.indexOf(ore));
+        Omegga.writeln(
+          `Bricks.ClearRegion ${position.join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
+        );
+        drill.mined++;
+        if(drill.direction==='down'as Directions){
+          drill.position=[drill.position[0],drill.position[1],drill.position[2]-BRICK_WHOLE];
+        }else if(drill.direction==='up'as Directions){
+          drill.position=[drill.position[0],drill.position[1],drill.position[2]+BRICK_WHOLE];
+        }else if(drill.direction==='east'as Directions){
+          drill.position=[drill.position[0]+BRICK_WHOLE,drill.position[1],drill.position[2]];
+        }else if(drill.direction==='west'as Directions){
+          drill.position=[drill.position[0]-BRICK_WHOLE,drill.position[1],drill.position[2]];
+        }else if(drill.direction==='north' as Directions){
+          drill.position=[drill.position[0],drill.position[1]-BRICK_WHOLE,drill.position[2]];
+        }else if(drill.direction==='soouth' as Directions){
+          drill.position=[drill.position[0],drill.position[1]+BRICK_WHOLE,drill.position[2]];
+        }
+        }
+      }
+    },100);
+
     const restartChecker = setInterval(()=>{
       let blocksMined = 0;
-      for(let c1  of Object.keys(spots)){
-        if(spots[`${c1}`] && spots[`${c1}`].spots)
-            blocksMined+= spots[`${c1}`].spots.length;
+      for(let c1  of spots){
+            blocksMined+= c1.spots.length;
       }
       if(blocksMined>300000){
         this.omegga.broadcast("Surpassed 300,000 bricks mined. Restarting...");
@@ -248,10 +322,12 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     })
     this.omegga.on('leave', async (player: OmeggaPlayer) =>{
       const name = player.name
-      console.info("Saving PlayerStats for "+name+"...")
       const pla = playerstats[name];
       if(pla!=null){
+        console.info("Saving PlayerStats for "+name+"... ["+pla.bank+" "+pla.level+"]")
+        if( Number.isInteger(pla.bank))
       this.store.set("playerStatsObject_"+name+"_bank",pla.bank);
+      if( Number.isInteger(pla.level))
       this.store.set("playerStatsObject_"+name+"_level",pla.level);
       this.store.set("playerStatsObject_"+name+"_ls",pla.lavasuit);
       this.store.set("playerStatsObject_"+name+"_lm", pla.lowestY);
@@ -263,10 +339,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       try{
               if(this.omegga.getPlayer(speaker).isHost){
       let amountInt = +amount;
-      let pla = playerstats[player];
+      let pla = playerstats[this.getPlayerByStartsWith(player)];
 if(pla){
   pla.bank = amountInt;
-  this.omegga.whisper(speaker,"Setting bank to "+amountInt);
+  this.omegga.whisper(speaker,"Setting "+pla.name+"'sbank to "+amountInt);
 }
     }
      }catch(error){
@@ -278,10 +354,10 @@ if(pla){
       try{
               if(this.omegga.getPlayer(speaker).isHost){
       let amountInt = +amount;
-      let pla = playerstats[player];
+      let pla = playerstats[this.getPlayerByStartsWith(player)];
 if(pla){
   pla.level = amountInt;
-  this.omegga.whisper(speaker,"Setting level to "+amountInt);
+  this.omegga.whisper(speaker,"Setting "+pla.name+"'s level to "+amountInt);
 }
     }
      }catch(error){
@@ -289,18 +365,79 @@ if(pla){
   }
 
     });
+    this.omegga.on('cmd:buydrill', async (speaker: string,numstring:string ,dir:string ) => {
+      let num = 1;
+      if(numstring){
+        num = +numstring;
+      }
+      if(num<1)
+      num=1;
+      if(
+        dir == "up"||
+        dir == "down"||
+        dir == "north"||
+        dir == "south"||
+        dir == "east"||
+        dir == "west"
+      ){
+      let pla = playerstats[speaker];
+      if(pla){
+        if(pla.bank>=num*5){
+           let direction:Directions = dir as Directions;
+           let drill = new Drill(null,num,speaker,dir);
+         activeDrills.push(drill);
+          pla.bank-=num*5;
+          this.omegga.whisper(speaker,"Bought a drill for "+dir+" for $"+(num*5));
+        }else{
+          this.omegga.whisper(speaker,"It costs "+(num*5)+" to drill "+num+" blocks");
+        }
+      }
+      }else{        
+        this.omegga.whisper(speaker,dir+" not a valid direction.");
+      }
+
+    });
 
     this.omegga.on('cmd:save', async (speaker: string) => {
       let playerstat = playerstats[speaker];
       if(playerstat){
         const name = playerstat.name
-        console.info("Saving PlayerStats for "+name+"...")
+        console.info("Saving PlayerStats for "+name+"... ["+pla.bank+" "+pla.level+"]")
+        if( Number.isInteger(playerstat.bank))
         this.store.set("playerStatsObject_"+name+"_bank",playerstat.bank);
+        if( Number.isInteger(playerstat.level))
         this.store.set("playerStatsObject_"+name+"_level",playerstat.level);
         this.store.set("playerStatsObject_"+name+"_ls",playerstat.lavasuit);
         this.store.set("playerStatsObject_"+name+"_lm", playerstat.lowestY);
         this.store.set("playerStatsObject_"+name+"_bm", playerstat.blocksmined);
         this.omegga.whisper(playerstat.name,"Saved.");
+      }else{
+        const name = speaker;
+        const pss_bank = await this.store.get("playerStatsObject_"+name+"_bank");
+        const pss_level = await this.store.get("playerStatsObject_"+name+"_level");
+        const pss_ls = await this.store.get("playerStatsObject_"+name+"_ls");
+        if(pss_bank === undefined || pss_bank===null){
+          playerstats[name] = new PlayerStats(name, 1, 0, 0,0,0)
+          console.info(`New player '${name}' has joined, giving them a playerstats template.`)
+          return;
+        }else{
+          if(playerstats[name]!=undefined&&playerstats[name]!=null){
+            const pss_lm = await this.store.get("playerStatsObject_"+name+"_lm");
+            const pss_bm = await this.store.get("playerStatsObject_"+name+"_bm");
+            if(pss_lm===undefined||pss_lm===null){
+              playerstats[name]=new PlayerStats(name, pss_level,pss_bank,pss_ls,0,0);
+            }else{
+             playerstats[name]=new PlayerStats(name, Math.floor(pss_level),pss_bank,pss_ls,pss_lm,pss_bm);
+            }
+          }
+        }
+        console.info("Saving PlayerStats for "+name+"... ["+playerstat.bank+" "+playerstat.level+"]")
+        this.store.set("playerStatsObject_"+name+"_bank",playerstat.bank);
+        this.store.set("playerStatsObject_"+name+"_level",playerstat.level);
+        this.store.set("playerStatsObject_"+name+"_ls",playerstat.lavasuit);
+        this.store.set("playerStatsObject_"+name+"_lm", playerstat.lowestY);
+        this.store.set("playerStatsObject_"+name+"_bm", playerstat.blocksmined);
+        this.omegga.whisper(playerstat.name,"Saved but had to overrite because playerstats was undefined.");
       }
 
   });
@@ -338,7 +475,7 @@ if(pla){
       let cost = 1000;
       if(playerstat){
       if(playerstat.bank<cost){
-        this.omegga.whisper(speaker, "You need atleast $"+cost+" to buy a gun. You have $"+playerstat.bank);
+        this.omegga.whisper(speaker, "You need atleast $"+cost.toFixed(2)+" to buy a gun. You have $"+playerstat.bank.toFixed(2));
         return;
       }else{
         this.omegga.getPlayer(speaker).giveItem('Weapon_MagnumPistol')
@@ -386,9 +523,9 @@ if(pla){
       if(playerstat===undefined){
         return;
       }
-      let cost: number = (Math.pow(playerstat.level,1.78))+75;
+      let cost: number = (Math.pow(playerstat.level,1.3))+25;
       if(playerstat.bank<cost){
-        this.omegga.whisper(speaker, "You need atleast $"+cost.toFixed(2)+" to upgrade your pick. You have $"+playerstat.bank);
+        this.omegga.whisper(speaker, "You need atleast $"+cost.toFixed(2)+" to upgrade your pick. You have $"+playerstat.bank.toFixed(2));
         return;
       }else{
         playerstat.level++;
@@ -412,6 +549,7 @@ if(pla){
         this.omegga.whisper(speaker, "/renameore (name) - renames your ore to that name.");
         this.omegga.whisper(speaker, "/stats - Shows your stats");
         this.omegga.whisper(speaker, "/save - Manually saves your progress in case of crash.");
+        this.omegga.whisper(speaker, "/buydrill (depth) (direction) - Buys a drill that you can deploy that mines in a direction (up,down,north,south,east,west)");
     });
 
     this.omegga.on('cmd:buyhs', async (speaker: string, numstring:string) => {
@@ -437,9 +575,9 @@ if(pla){
 
     this.omegga.on('cmd:upgrademax', async (speaker: string) => {
       let playerstat = playerstats[speaker]
-      let cost: number = (Math.pow(playerstat.level,1.78))+75;
+      let cost: number = (Math.pow(playerstat.level,1.3))+25;
       if(playerstat.bank<cost){
-        this.omegga.whisper(speaker, "You need atleast $"+cost+" to upgrade your pick. You have $"+playerstat.bank);
+        this.omegga.whisper(speaker, "You need atleast $"+cost.toFixed(2)+" to upgrade your pick. You have $"+playerstat.bank.toFixed(2));
         return;
       }else{
         while(playerstat.bank>=cost){
@@ -451,9 +589,9 @@ if(pla){
     });
     this.omegga.on('cmd:upgradeall', async (speaker: string) => {
       let playerstat = playerstats[speaker]
-      let cost: number = (Math.pow(playerstat.level,1.78))+75;
+      let cost: number = (Math.pow(playerstat.level,1.3))+25;
       if(playerstat.bank<cost){
-        this.omegga.whisper(speaker, "You need atleast $"+cost+" to upgrade your pick. You have $"+playerstat.bank);
+        this.omegga.whisper(speaker, "You need atleast $"+cost.toFixed(2)+" to upgrade your pick. You have $"+playerstat.bank.toFixed(2));
         return;
       }else{
         while(playerstat.bank>=cost){
@@ -465,249 +603,279 @@ if(pla){
     });
     this.omegga.on('interact',
       async ({ player, position }) => {
-        try{
-        let playerstat = playerstats[player.name]
-        
-      const name = player.name
-      if(!playerstat){
-        playerstats[name] = new PlayerStats(name, 1, 0, 0,0,0)
-        console.info(`New player '${name}' has joined, giving them a playerstats template.`)
-        return;
-      }
-        if(Date.now()-playerstat.cooldown<25){
-          if(!cooldownWarnings[playerstat.name] || Date.now()-cooldownWarnings[playerstat.name]>5000){
-          this.omegga.whisper(player.name,"You are clicking too fast! Clicking fast lags the game for everyone!");
-        }
-        cooldownWarnings[playerstat.name] = Date.now();
-            return;
-        }
-        playerstat.cooldown=Date.now();
+        this.mine(player,position);
+    });
 
-        let ore = await this.getOre(position);
-        if(ore===undefined||ore==null){
-          let chunk = getChunk(position[0],position[1],position[2]);
-          if(chunk.spots.indexOf("x"+position[0]+"y"+position[1]+"z"+position[2])==-1){
-          await this.genOre([position],position);
-          ore = await this.getOre(position);
+    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','upgradeall','renameore','stats','save','setlevel','setbank','buydrill'] };
+  }
+
+  async mine(player: any, position: Vector){
+    const time1 = Date.now();
+    try{
+      let playerstat = playerstats[player.name]
+      
+    const name = player.name
+    if(!playerstat){
+      playerstats[name] = new PlayerStats(name, 1, 0, 0,0,0)
+      console.info(`New player '${name}' has joined, giving them a playerstats template.`)
+      return;
+    }
+      if(Date.now()-playerstat.cooldown<5){
+        if(!cooldownWarnings[playerstat.name] || Date.now()-cooldownWarnings[playerstat.name]>10000){
+        this.omegga.whisper(name,"You are clicking too fast! Clicking fast lags the game for everyone!");
+        cooldownWarnings[name] = Date.now();
+      }
+          return;
+      }
+      playerstat.cooldown=Date.now();
+
+      let ore = await this.getOre(position);
+      if(ore===undefined||ore==null){
+        let chunk = getChunk(position[0],position[1],position[2]);
+        if(chunk.spots.indexOf("x"+position[0]+"y"+position[1]+"z"+position[2])==-1){
+        await this.genOre([position],position);
+        ore = await this.getOre(position);
+        }
+      }
+      
+
+
+      if(ore){
+        for(const drill of activeDrills){
+          if(drill.player===player.name){
+            drill.position=position;
+            activeDrills.splice(activeDrills.indexOf(drill));
+            drillingDrills.push(drill);
+            return;
           }
         }
-        
+      }
 
-        //This code is always expected to work, however if a user attempts to access a brick that doesn't exist, instead of an unhandled exception crash, we log it and mine the brick.
-          if(ore){
-            if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
-              playerstat.blocksmined++;
-              if(ore.type.price>0){
-              this.omegga.middlePrint(player.name,colorGreen+ore.type.name+"</> <br> "+colorYellow+"Earned:</> $"+(ore.type.price*globalMoneyMultiplier*globalMoneyMultiplierTimer).toFixed(2));
-              playerstat.bank+=(ore.type.price*globalMoneyMultiplier*globalMoneyMultiplierTimer);
-              }
-              
-        switch (ore.type) {
-          case lava:
-            
-            if(playerstat.lavasuit>0){
-              playerstat.lavasuit--;
-            }else{
-            this.omegga.getPlayer(player.id).kill();
-            this.omegga.broadcast(""+playerstat.name+" was killed by lava!");
+
+    const time2 = Date.now();
+
+      //This code is always expected to work, however if a user attempts to access a brick that doesn't exist, instead of an unhandled exception crash, we log it and mine the brick.
+        if(ore){
+          if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
+            playerstat.blocksmined++;
+            if(ore.type.price>0){
+            this.omegga.middlePrint(player.name,colorGreen+ore.type.name+"</> <br> "+colorYellow+"Earned:</> $"+(ore.type.price*globalMoneyMultiplier*globalMoneyMultiplierTimer).toFixed(2));
+            playerstat.bank+=(ore.type.price*globalMoneyMultiplier*globalMoneyMultiplierTimer);
             }
+            
+      switch (ore.type) {
+        case lava:
+          
+          if(playerstat.lavasuit>0){
+            playerstat.lavasuit--;
+          }else{
+          this.omegga.getPlayer(player.id).kill();
+          this.omegga.broadcast(""+playerstat.name+" was killed by lava!");
+          }
 
-            break;
+          break;
 
-          case bomb:
-            this.omegga.broadcast(""+playerstat.name+" detonated a bomb!");
-            let radius =(Math.min((playerstat.level/10)+7,45))*BRICK_SIZE;
-            let array:Array<Vector> = [];
-            const BRICK_WHOLE = 2*BRICK_SIZE;
-            for(let x = position[0]-radius-BRICK_WHOLE;x<=position[0]+radius+BRICK_WHOLE;x+=BRICK_WHOLE){
-              for(let y = position[1]-radius-BRICK_WHOLE;y<=position[1]+radius+BRICK_WHOLE;y+=BRICK_WHOLE){
-                for(let z = position[2]-radius-BRICK_WHOLE;z<=position[2]+radius+BRICK_WHOLE;z+=BRICK_WHOLE){
-                  let dist = ((x-position[0])*(x-position[0]))+((y-position[1])*(y-position[1]))+((z-position[2])*(z-position[2]));
-                  if(((dist-BRICK_WHOLE)*(dist-BRICK_WHOLE)<radius*radius)){
-                    if(((dist)*(dist)<radius*radius)){
-                      let x1: string = "x"+(x)+"y"+y+"z"+z;
-                      let chunk = getChunk(x,y,z);
-                      array.push([x,y,z])
-                      Omegga.writeln(
-                        `Bricks.ClearRegion ${position.join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
-                      );
-                        if(chunk.spots.indexOf(x1)==-1){
-                          chunk.spots.push(x1);
-                      }
-                    }else{
+        case bomb:
+          this.omegga.broadcast(""+playerstat.name+" detonated a bomb!");
+          let radius =(Math.min((playerstat.level/10)+7,45))*BRICK_WHOLE;
+          let array:Array<Vector> = [];
+          for(let x = position[0]-radius-BRICK_WHOLE;x<=position[0]+radius+BRICK_WHOLE;x+=BRICK_WHOLE){
+            for(let y = position[1]-radius-BRICK_WHOLE;y<=position[1]+radius+BRICK_WHOLE;y+=BRICK_WHOLE){
+              for(let z = position[2]-radius-BRICK_WHOLE;z<=position[2]+radius+BRICK_WHOLE;z+=BRICK_WHOLE){
+                let dist = ((x-position[0])*(x-position[0]))+((y-position[1])*(y-position[1]))+((z-position[2])*(z-position[2]));
+                if(((dist)*(dist)<=radius*radius)){
+                  console.log("Dist="+dist+" Radius = "+(radius*radius));
+                  if(((dist+BRICK_WHOLE)*(dist+BRICK_WHOLE)<=radius*radius)){
                     array.push([x,y,z])
+                  }else{
+                    let x1: string = "x"+(x)+"y"+y+"z"+z;
+                    let chunk = getChunk(x,y,z);
+                    array.push([x,y,z])
+                    Omegga.writeln(
+                      `Bricks.ClearRegion ${[x,y,z].join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
+                    );
+                      if(chunk.spots.indexOf(x1)==-1){
+                        chunk.spots.push(x1);
                     }
                   }
                 }
               }
             }
-            this.genOre(array,position);
-            break;
-
-          case lotto:
-
-
-          const slot = getRandomInt(100);
-
-          if(slot<10){
-            let recieved = playerstat.bank;
-            recieved*=Math.random();
-            recieved = Math.min(200000,recieved);
-            playerstat.bank-=Math.floor(recieved);
-            this.omegga.whisper(playerstat.name,"You have lost $"+Math.floor(recieved)+".");
-
-          }else if(slot<30){
-            let recieved = playerstat.bank;
-            recieved*=Math.random();
-            recieved = Math.min(200000,recieved);
-            playerstat.bank+=Math.floor(recieved);
-            this.omegga.whisper(playerstat.name,"You have recieved $"+Math.floor(recieved)+".");
-
-          }else if(slot<35){
-              let recieved = playerstat.level;
-              recieved*=Math.random()/5;
-              recieved = Math.min(200,recieved);
-              playerstat.level-=Math.floor(recieved);
-              this.omegga.whisper(playerstat.name,"You have lost "+Math.floor(recieved)+" levels.");
-  
-            }else if(slot<50){
-              let recieved = playerstat.level;
-              recieved*=Math.random()/5;
-              playerstat.level+=Math.floor(recieved);
-              this.omegga.whisper(playerstat.name,"You have recieved "+Math.floor(recieved)+" level.");
-              
-            }else if(slot<55){
-            globalMoneyMultiplierTimer=getRandomInt(20);
-            this.omegga.broadcast("Timer Multiplier has beem set to "+globalMoneyMultiplierTimer+"x for 5 minutes.")
-            setTimeout(() => {
-              globalMoneyMultiplierTimer=1;
-              this.omegga.broadcast("Timer Multiplier returned to normal.");
-            }, 5*60000);
-
-          }else if (slot<60){
-            globalMoneyMultiplier-=+Math.random();
-            this.omegga.broadcast(colorRed+playerstat.name+" mined a lotto-block and lowered the multiplier to "+globalMoneyMultiplier.toFixed(2)+"</>");
-          }else if (slot < 88){
-            globalMoneyMultiplier+=+Math.random();
-            this.omegga.broadcast(colorYellow+playerstat.name+" mined a lotto-block and raised the multiplier to "+globalMoneyMultiplier.toFixed(2)+"</>");
-          }else if (slot < 90){
-            let found = null;
-            for(let ore of oretypes){
-              if(ore instanceof PlayerOre && ore.owner === player.name){
-                found = ore;
-                break;
-              }
-            }
-            if(found==null){
-            let miny = (7-getRandomInt(15))*4000;
-            let playerore = new PlayerOre(getRandomInt(playerstat.level*1000),playerstat.name+"ium",getRandomInt(playerstat.bank),miny,miny+4000,getRandomInt(12*6),3,playerstat.name);
-            oretypes.push(playerore);
-            this.omegga.broadcast(colorYellow+playerstat.name+" has found "+playerore.name+", normally found between "+miny+" and "+(+miny+4000)+"</>");
-            }else{
-              let raise =getRandomInt(playerstat.bank)
-              found.price+=raise;
-              this.omegga.broadcast(colorYellow+found.name+" price has been raised to $"+found.price+"("+raise+") </>");
-
-            }
-          }else{
-            this.omegga.broadcast(playerstat.name+" mined a lotto-block that did nothing!");
           }
-            break;
+          this.genOre(array,position);
+          break;
 
-          case rlcbmium:
-            let date = new Date();
-            this.omegga.broadcast(playerstat.name+": it is now "+date.toLocaleTimeString('en-US', {
-              hour:'numeric',
-              minute: '2-digit',
-            })
-            +".");
-            break;
-          default:
-            break;
-            }
-          }
-          ore.setDurability(ore.getDurability()-playerstat.level);
-        }
+        case lotto:
 
-        
-        if(ore == null || ore.getDurability() <= 0){
 
-          // checks for spots that have already been mined
-          if(ore == null) {
-            let chunk = getChunk(position[0],position[1],position[2]);
-            if(chunk.spots.indexOf("x"+position[0]+"y"+position[1]+"z"+position[2])==-1){
-              chunk.spots.push("x"+position[0]+"y"+position[1]+"z"+position[2]);
-            }
-  
+        const slot = getRandomInt(100);
+
+        if(slot<10){
+          let recieved = playerstat.bank;
+          recieved*=Math.random();
+          recieved = Math.min(200000,recieved);
+          playerstat.bank-=Math.floor(recieved);
+          this.omegga.whisper(playerstat.name,"You have lost $"+Math.floor(recieved)+".");
+
+        }else if(slot<30){
+          let recieved = playerstat.bank;
+          recieved*=Math.random();
+          recieved = Math.min(200000,recieved);
+          playerstat.bank+=Math.floor(recieved);
+          this.omegga.whisper(playerstat.name,"You have recieved $"+Math.floor(recieved)+".");
+
+        }else if(slot<35){
+            let recieved = playerstat.level;
+            recieved*=Math.random()/5;
+            recieved = Math.min(200,recieved);
+            playerstat.level-=Math.floor(recieved);
+            this.omegga.whisper(playerstat.name,"You have lost "+Math.floor(recieved)+" levels.");
+
+          }else if(slot<50){
+            let recieved = playerstat.level;
+            recieved*=Math.random()/5;
+            playerstat.level+=Math.floor(recieved);
+            this.omegga.whisper(playerstat.name,"You have recieved "+Math.floor(recieved)+" level.");
             
-          }
-          
-          let x1: string = "x"+(position[0]+40)+"y"+position[1]+"z"+position[2];
-          let chunk = getChunk(position[0]+40,position[1],position[2]);
-          let positionArray:Array<Vector> = [];
-          if(chunk.spots.indexOf(x1)==-1){
-            positionArray.push([position[0]+40,position[1],position[2]])
-            chunk.spots.push(x1);
-          }
-          chunk = getChunk(position[0]-40,position[1],position[2]);
-          let x2: string = "x"+(position[0]-40)+"y"+position[1]+"z"+position[2];
-          if(chunk.spots.indexOf(x2)==-1){
-            positionArray.push([position[0]-40,position[1],position[2]])
-            chunk.spots.push(x2);
-          }
-          chunk = getChunk(position[0],position[1]+40,position[2]);
-          let y1: string = "x"+(position[0])+"y"+(position[1]+40)+"z"+position[2];
-          if(chunk.spots.indexOf(y1)==-1){
-            positionArray.push([position[0],position[1]+40,position[2]])
-            chunk.spots.push(y1);
-          }
-          chunk = getChunk(position[0],position[1]-40,position[2]);
-          let y2: string = "x"+(position[0])+"y"+(position[1]-40)+"z"+position[2];
-          if(chunk.spots.indexOf(y2)==-1){
-            positionArray.push([position[0],position[1]-40,position[2]])
-            chunk.spots.push(y2);
-          }
-          chunk = getChunk(position[0],position[1],position[2]+40);
-          let z1: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]+40);
-          if(chunk.spots.indexOf(z1)==-1){
-            positionArray.push([position[0],position[1],position[2]+40])
-            chunk.spots.push(z1);
-          }
-          chunk = getChunk(position[0],position[1],position[2]-40);
-          let z2: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]-40);
-          if(chunk.spots.indexOf(z2)==-1){
-            positionArray.push([position[0],position[1],position[2]-40])
-            chunk.spots.push(z2);
-          }
-          this.genOre(positionArray,position);
-          let c = getChunk(position[0],position[1],position[2]);
-          c.ores.splice(c.ores.indexOf(ore));
-          Omegga.writeln(
-            `Bricks.ClearRegion ${position.join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
-          );
+          }else if(slot<55){
+          globalMoneyMultiplierTimer=getRandomInt(20);
+          this.omegga.broadcast("Timer Multiplier has beem set to "+globalMoneyMultiplierTimer+"x for 5 minutes.")
+          setTimeout(() => {
+            globalMoneyMultiplierTimer=1;
+            this.omegga.broadcast("Timer Multiplier returned to normal.");
+          }, 5*60000);
 
-        }else{          
-          if(ore.type)
-        this.omegga.middlePrint(player.name,colorGreen+ore.type.name+"</>"+colorYellow+"<br> Durability: "+ore.getDurability()+"</><br>Price: $"+(ore.type.price*globalMoneyMultiplier).toFixed(2));
+        }else if (slot<60){
+          globalMoneyMultiplier-=+Math.random();
+          this.omegga.broadcast(colorRed+playerstat.name+" mined a lotto-block and lowered the multiplier to "+globalMoneyMultiplier.toFixed(2)+"</>");
+        }else if (slot < 88){
+          globalMoneyMultiplier+=+Math.random();
+          this.omegga.broadcast(colorYellow+playerstat.name+" mined a lotto-block and raised the multiplier to "+globalMoneyMultiplier.toFixed(2)+"</>");
+        }else if (slot < 90){
+          let found = null;
+          for(let ore of oretypes){
+            if(ore instanceof PlayerOre && ore.owner === player.name){
+              found = ore;
+              break;
+            }
+          }
+          if(found==null){
+          let miny = (7-getRandomInt(15))*4000;
+          let playerore = new PlayerOre(getRandomInt(playerstat.level*1000),playerstat.name+"ium",getRandomInt(playerstat.bank),miny,miny+4000,getRandomInt(12*6),3,playerstat.name);
+          oretypes.push(playerore);
+          this.omegga.broadcast(colorYellow+playerstat.name+" has found "+playerore.name+", normally found between "+miny+" and "+(+miny+4000)+"</>");
+          }else{
+            let raise =getRandomInt(playerstat.bank)
+            found.price+=raise;
+            this.omegga.broadcast(colorYellow+found.name+" price has been raised to $"+found.price+"("+raise+") </>");
+
+          }
+        }else{
+          this.omegga.broadcast(playerstat.name+" mined a lotto-block that did nothing!");
         }
-      }catch(error){
-        console.error(error);
-      }
-    });
+          break;
 
-    return { registeredCommands: ['upgrade','upgrademax','bank','top','?','buyhs','buygun','upgradeall','renameore','stats','save','setlevel','setbank'] };
+        case rlcbmium:
+          let date = new Date();
+          this.omegga.broadcast(playerstat.name+": it is now "+date.toLocaleTimeString('en-US', {
+            hour:'numeric',
+            minute: '2-digit',
+          })
+          +".");
+          break;
+        default:
+          break;
+          }
+        }
+        ore.setDurability(ore.getDurability()-playerstat.level);
+      }
+      const time3 = Date.now();
+      
+      if(ore == null || ore.getDurability() <= 0){
+        if(Date.now()-playerstat.cooldown_mining<100)
+          return;
+        playerstat.cooldown_mining = Date.now();
+
+        // checks for spots that have already been mined
+        if(ore == null) {
+          let chunk = getChunk(position[0],position[1],position[2]);
+          if(chunk.spots.indexOf("x"+position[0]+"y"+position[1]+"z"+position[2])==-1){
+            chunk.spots.push("x"+position[0]+"y"+position[1]+"z"+position[2]);
+          }
+
+          
+        }
+        
+        let x1: string = "x"+(position[0]+40)+"y"+position[1]+"z"+position[2];
+        let chunk = getChunk(position[0]+40,position[1],position[2]);
+        let positionArray:Array<Vector> = [];
+        if(chunk.spots.indexOf(x1)==-1){
+          positionArray.push([position[0]+40,position[1],position[2]])
+          chunk.spots.push(x1);
+        }
+        chunk = getChunk(position[0]-40,position[1],position[2]);
+        let x2: string = "x"+(position[0]-40)+"y"+position[1]+"z"+position[2];
+        if(chunk.spots.indexOf(x2)==-1){
+          positionArray.push([position[0]-40,position[1],position[2]])
+          chunk.spots.push(x2);
+        }
+        chunk = getChunk(position[0],position[1]+40,position[2]);
+        let y1: string = "x"+(position[0])+"y"+(position[1]+40)+"z"+position[2];
+        if(chunk.spots.indexOf(y1)==-1){
+          positionArray.push([position[0],position[1]+40,position[2]])
+          chunk.spots.push(y1);
+        }
+        chunk = getChunk(position[0],position[1]-40,position[2]);
+        let y2: string = "x"+(position[0])+"y"+(position[1]-40)+"z"+position[2];
+        if(chunk.spots.indexOf(y2)==-1){
+          positionArray.push([position[0],position[1]-40,position[2]])
+          chunk.spots.push(y2);
+        }
+        chunk = getChunk(position[0],position[1],position[2]+40);
+        let z1: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]+40);
+        if(chunk.spots.indexOf(z1)==-1){
+          positionArray.push([position[0],position[1],position[2]+40])
+          chunk.spots.push(z1);
+        }
+        chunk = getChunk(position[0],position[1],position[2]-40);
+        let z2: string = "x"+(position[0])+"y"+(position[1])+"z"+(position[2]-40);
+        if(chunk.spots.indexOf(z2)==-1){
+          positionArray.push([position[0],position[1],position[2]-40])
+          chunk.spots.push(z2);
+        }
+        this.genOre(positionArray,position);
+        let c = getChunk(position[0],position[1],position[2]);
+        c.ores.splice(c.ores.indexOf(ore));
+        Omegga.writeln(
+          `Bricks.ClearRegion ${position.join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
+        );
+
+      }else{          
+        if(ore.type)
+      this.omegga.middlePrint(player.name,colorGreen+ore.type.name+"</>"+colorYellow+"<br> Durability: "+ore.getDurability()+"</><br>Price: $"+(ore.type.price*globalMoneyMultiplier).toFixed(2));
+      }
+      const time4 = Date.now();
+      if(time4-time1>500)
+      console.log((time2-time1)+" "+(time3-time2)+" "+(time4-time3))
+    }catch(error){
+      console.error(error);
+    }
   }
 
   async stop() {
     console.info("Saving PlayerStats for ALL...")
     for(const pss of playerstats){
       if(pss!=null && pss != undefined){
+        if( Number.isInteger(pss.level))
+        if( Number.isInteger(pss.bank)){
+        console.info("Saving PlayerStats for "+pss.name+"... ["+pss.bank+" "+pss.level+"]")
       await Promise.all([this.store.set("playerStatsObject_"+pss.name+"_level", pss.level)
        , this.store.set("playerStatsObject_"+pss.name+"_ls", pss.lavasuit)
        ,  this.store.set("playerStatsObject_"+pss.name+"_lm", pss.lowestY)
        , this.store.set("playerStatsObject_"+pss.name+"_bm", pss.blocksmined)
       ,  this.store.set("playerStatsObject_"+pss.name+"_bank", pss.bank)])
       }
+    }
     }
   }
   //Fat Function should be split for organization.
@@ -845,6 +1013,14 @@ if(pla){
     }
   }
 
+  getPlayerByStartsWith(startswith:string) {
+    for(const pla of this.omegga.getPlayers()){
+      if(pla.name.startsWith(startswith))
+        return pla.name;
+    }
+    return startswith;    
+  }
+
 
 
 
@@ -880,12 +1056,12 @@ function getChunk(x: number, y: number, z: number){
   let yy = y/CHUNK_SIZE;
   let zz = z/CHUNK_SIZE;
 
-  /*for(const chunk of spots){
+  for(const chunk of spots){
     index++;
     if(x/CHUNK_SIZE==chunk.x){
       if(y/CHUNK_SIZE==chunk.y){
         if(z/CHUNK_SIZE==chunk.z){
-          if(index > spots.length/2){
+          if(index > spots.length/4){
             
       spots.sort(function(a, b) {
         if(a && b){
@@ -893,70 +1069,19 @@ function getChunk(x: number, y: number, z: number){
         }
         return 0;
       });
-          }
-          chunk.lastmined=Date.now();*/
-          let b = spots[`${xx}.${zz}.${yy}`];
-          if(b)
-          return b;
-        /*}
+          
+          chunk.lastmined=Date.now();
+    }
+    return chunk;
+        }
       }
     }
-  }*/
+  }
   /*let chunk = spots[x/CHUNK_SIZE][y/CHUNK_SIZE][z/CHUNK_SIZE];
   if(chunk)
     return chunk;*/
   let c = new Chunk(x/CHUNK_SIZE,y/CHUNK_SIZE,z/CHUNK_SIZE);
-  //spots[x/CHUNK_SIZE][y/CHUNK_SIZE][z/CHUNK_SIZE]=c;
-  spots[`${xx}.${zz}.${yy}`]=c;
+  spots.push(c);
+  //spots[`${xx}.${zz}.${yy}`]=c;
   return c;
 }
-
-
-/** lookup a brick by position and filter fn
- * @param unique when enabled, require this door to be unique
- */
-/* export async function getDoorBrickQuery(
-  region: { center: Vector; extent: Vector },
-  query: (brick: Brick) => boolean,
-  unique?: boolean
-): Promise<{ brick: Brick; ownerId: string }> {
-  // get the save data around the clicked brick
-  const saveData = await Omegga.getSaveData(region);
-
-  // no bricks detected
-  if (!saveData || saveData.bricks.length === 0) return null;
-
-  // ensure the brick version has components
-  if (saveData.version !== 10) return null;
-
-  // find brick based on query
-  const index = saveData.bricks.findIndex(query);
-  const brick = index > -1 ? saveData.bricks[index] : null;
-
-  // prevent multiple bricks in the same position from being clicked
-  if (
-    unique &&
-    index > -1 &&
-    saveData.bricks.some((b, i) => query(b) && i !== index)
-  )
-    return null;
-
-  if (!brick) return null;
-
-  return { brick, ownerId: saveData.brick_owners[brick.owner_index - 1].id };
-}*/
-
-/** get a brick's data from interact metadata (for relative positioning) */
-/*export async function getDoorBrickFromInteract(
-  position: Vector,
-): Promise<{ brick: Brick; ownerId: string }> {
-  // find the brick that has a matching position to this one
-  return getDoorBrickQuery(
-    {
-      center: position as Vector,
-      extent: [30, 30, 30] as Vector,
-    },
-    b => b.position.every((p, i) => position[i] === p),
-    true
-  );
-}*/

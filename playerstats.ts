@@ -3,6 +3,7 @@ export class PlayerStats{
     level: number=1;
     bank: number=0;
     cooldown: number=0;
+    cooldown_mining:number=0;
     lavasuit: number=0;
     blocksmined: number=0;
     lowestY: number=0;
