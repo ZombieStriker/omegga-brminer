@@ -1,6 +1,3 @@
-import OmeggaPlugin, { OL, PS, PC, Vector, Brick, WriteSaveObject } from 'omegga';
-
-
 export default class Ore{
     durability: number
     name: string
@@ -24,6 +21,10 @@ export default class Ore{
     public setDurability(durability: number){
         this.durability = durability;
     }
+    public getDurability(){
+        return this.durability;
+    }
+
 
     public setPrice(price: number){
         this.price = price;
