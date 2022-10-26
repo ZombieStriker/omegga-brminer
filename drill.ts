@@ -6,12 +6,14 @@ export default class Drill{
     mined:number=0;
     player:string;
     direction:Directions;
+    playerlevel:number;
 
-    constructor(position:Vector,range:number,player:string,direction:Directions){
+    constructor(position:Vector,range:number,player:string,direction:Directions,playerlevel:number){
         this.player=player;
         this.position=position;
         this.range =range;
         this.direction=direction;
+        this.playerlevel=playerlevel;
     }
 }
 

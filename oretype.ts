@@ -7,7 +7,7 @@ export default class Ore{
     price: number
     maxY: number
     minY: number
-    color: number
+    color: number=0
     material: number
 
     constructor(durability: number, name: string, price: number, miny: number, maxy: number, color: number, material: number){
@@ -18,6 +18,8 @@ export default class Ore{
         this.maxY=maxy;
         this.color = color;
         this.material = material;
+        if(color===null)
+        color=0;
     }
     public setDurability(durability: number){
         this.durability = durability;

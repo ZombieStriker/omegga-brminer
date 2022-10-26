@@ -30,9 +30,9 @@ const colorGreen = "<color=\"0ccf00\">";
 const colorYellow = "<color=\"00ffff\">";
 const colorRed = "<color=\"ff3303\">";
 
-let stone_word_start: string[] = ["Hard","Harder","Super Hard","Dank","Banksy","Poop","Radioactive","Cute","Funny","Stupid","Greggory","Pegg","Angreggy","Unknown","Pizza","Doof","<Error>","LolCatz"];
+let stone_word_start: string[] = ["Hard","Harder","Super Hard","Dank","Banksy","Poop","Radioactive","Cute","Funny","Stupid","Greggory","Pegg","Angreggy","Unknown","Pizza","Doof","<Error>","LolCatz","Morb"];
 let stone_word_end: string[] = ["Stone","Diorite","Andersite","Marble","Quartz","Limestone"];
-let ore_word_start: string[] = ["Blue","Red","Yellow","Green","Pink","Purple","Pegg","Greggory","Omegga","Alpha","<Error>"];
+let ore_word_start: string[] = ["Pegg","Greggory","Omegga","Alpha","<Error>","Morb","Dorb","Poop","Hero","Gray","Pizza","Donut","I'm Hungry","Dad","Mom","Train"];
 let ore_word_end: string[] = ["ite","ium"," Bonds"," Lattice"," Goo","ion"," Ions"];
 
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
@@ -48,6 +48,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
   async init() {
     this.omegga.on('autorestart',async()=>{
+      setTimeout(async()=>{
       for(const pla of this.omegga.getPlayers()){
         const pss_bank = await this.store.get("playerStatsObject_"+pla.name+"_bank");
         const pss_level = await this.store.get("playerStatsObject_"+pla.name+"_level");
@@ -69,6 +70,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.omegga.clearAllBricks();
       this.omegga.loadBricks("brminer")
       spots=[];
+      drillingDrills=[];
+    },1000*15);
     });
     this.omegga.on('mapchange',async()=>{
       for(const player of this.omegga.getPlayers()){
@@ -105,8 +108,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
       }
     }
+    setTimeout(()=>{
     this.omegga.clearAllBricks();
     this.omegga.loadBricks("brminer");
+    },2000);
 
     oretypes.push(new OreType(10,"Tin",5,-4000000000,4000000000,0,6));
     oretypes.push(new OreType(12000000,"Dingoananasorium", 1200000,28000,52000,66,3));
@@ -143,7 +148,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     oretypes.push(new OreType(501000,"Aware",50100,-320000,-16000,32,6));
     oretypes.push(new OreType(1001000,"Cakium",100100,-640000,-32000,37,6));
     oretypes.push(new OreType(5005000,"Simulatium",500100,-640000,-32000,37,7));
-    oretypes.push(new OreType(10100000,"Bobcatiumm",1010000,-640000,-32000,24,7));
+    oretypes.push(new OreType(10100000,"Bobcatium",1010000,-640000,-32000,24,7));
     oretypes.push(new OreType(20100000,"ATM Machine",2210000,-640000,-32000,66,3));
     oretypes.push(new OreType(40100000,"Titanium Bonds",4010000,-640000,-32000,2,3));
     oretypes.push(new OreType(400100000,"Tacheyon Bonds",40100000,-960000,-64000,66,3));
@@ -155,51 +160,54 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
 
 
-    stonetypes.push(new OreType(999950000,"Moon Stone",100,52000,62000,3,3));
-    stonetypes.push(new OreType(99995000,"Space",32,48000,52000,11,4));
-    stonetypes.push(new OreType(9999500,"Space",32,32000,42000,11,4));
-    stonetypes.push(new OreType(999950,"Space",32,28000,32000,11,4));
-    stonetypes.push(new OreType(59999,"Thin Air",20,24000,28000,72,3));
-    stonetypes.push(new OreType(9995,"Air",15,20000,24000,79,3));
-    stonetypes.push(new OreType(995,"Water",10,16000,20000,82,6));
-    stonetypes.push(new OreType(15,"Gravel",5,8000,16000,7,3));
-    stonetypes.push(new OreType(5,"Dirt",2,4000,8000,12,3));
+    stonetypes.push(new OreType(999950000,"Moon Stone",0,52000,62000,3,3));
+    stonetypes.push(new OreType(99995000,"Space",0,48000,52000,11,4));
+    stonetypes.push(new OreType(9999500,"Space",0,32000,42000,11,4));
+    stonetypes.push(new OreType(999950,"Space",0,28000,32000,11,4));
+    stonetypes.push(new OreType(59999,"Thin Air",0,24000,28000,72,3));
+    stonetypes.push(new OreType(9995,"Air",0,20000,24000,79,3));
+    stonetypes.push(new OreType(995,"Water",0,16000,20000,82,6));
+    stonetypes.push(new OreType(15,"Gravel",0,8000,16000,7,3));
+    stonetypes.push(new OreType(5,"Dirt",0,4000,8000,12,3));
     //Players Spawn here
-    stonetypes.push(new OreType(5,"Stone",1,-4000,4000,4,3));
-    stonetypes.push(new OreType(15,"Hard Stone",2,-8000,-4000,5,3));
-    stonetypes.push(new OreType(115,"Harder Stone",4,-12000,-8000,6,3));
-    stonetypes.push(new OreType(1115,"Hardest Stone",8,-16000,-12000,7,3));
-    stonetypes.push(new OreType(11115,"Deepslate",16,-20000,-16000,8,3));
-    stonetypes.push(new OreType(22225,"Bedrock",32,-24000,-20000,9,3));
-    stonetypes.push(new OreType(33335,"Granite",64,-30000,-24000,12,3));
-    stonetypes.push(new OreType(55555,"Condensed Stone",128,-40000,-30000,7,3));
-    stonetypes.push(new OreType(66666,"Hardened Stone Squared",256,-50000,-40000,8,3));
-    stonetypes.push(new OreType(100000,"Deep Stone",512,-60000,-50000,9,3));
-    stonetypes.push(new OreType(600000,"Dingo Ananas Stone",512,-70000,-60000,15,3));
-    stonetypes.push(new OreType(1000000,"Cheese Stone",512,-80000,-70000,16,3));
-    stonetypes.push(new OreType(6000000,"Super Hard Stone",512,-90000,-80000,17,3));
-    stonetypes.push(new OreType(10100000,"Extra Hard Stone",512,-100000,-90000,18,3));
-    stonetypes.push(new OreType(30100000,"Seriously Hard Stone",512,-110000,-100000,19,3));
-    stonetypes.push(new OreType(70100000,"Blue Stone",512,-120000,-110000,20,3));
-    stonetypes.push(new OreType(100100000,"Goo Stone",512,-130000,-120000,21,4));
-    stonetypes.push(new OreType(100100000,"Fake Stone",512,-150000,-130000,66,4));
+    stonetypes.push(new OreType(5,"Stone",0,-4000,4000,4,3));
+    stonetypes.push(new OreType(15,"Hard Stone",0,-8000,-4000,5,3));
+    stonetypes.push(new OreType(115,"Harder Stone",0,-12000,-8000,6,3));
+    stonetypes.push(new OreType(1115,"Hardest Stone",0,-16000,-12000,7,3));
+    stonetypes.push(new OreType(11115,"Deepslate",0,-20000,-16000,8,3));
+    stonetypes.push(new OreType(22225,"Bedrock",0,-24000,-20000,9,3));
+    stonetypes.push(new OreType(33335,"Granite",0,-30000,-24000,12,3));
+    stonetypes.push(new OreType(55555,"Condensed Stone",0,-40000,-30000,7,3));
+    stonetypes.push(new OreType(66666,"Hardened Stone Squared",0,-50000,-40000,8,3));
+    stonetypes.push(new OreType(100000,"Deep Stone",0,-60000,-50000,9,3));
+    stonetypes.push(new OreType(600000,"Dingo Ananas Stone",0,-70000,-60000,15,3));
+    stonetypes.push(new OreType(1000000,"Cheese Stone",0,-80000,-70000,16,3));
+    stonetypes.push(new OreType(6000000,"Super Hard Stone",0,-90000,-80000,17,3));
+    stonetypes.push(new OreType(10100000,"Extra Hard Stone",0,-100000,-90000,18,3));
+    stonetypes.push(new OreType(30100000,"Seriously Hard Stone",0,-110000,-100000,19,3));
+    stonetypes.push(new OreType(70100000,"Blue Stone",0,-120000,-110000,20,3));
+    stonetypes.push(new OreType(100100000,"Goo Stone",0,-130000,-120000,21,4));
+    stonetypes.push(new OreType(100100000,"Fake Stone",0,-150000,-130000,66,4));
 
     //Autosaver 
     let pol= await this.store.get("playerores_list");
     if(pol){
       for(let ore of pol){
-        let dur=await this.store.get("playerores_"+ore.name+"_durability");
-        let miny=await  this.store.get("playerores_"+ore.name+"_miny");
-        let maxy=await this.store.get("playerores_"+ore.name+"_maxy");
-        let price=await  this.store.get("playerores_"+ore.name+"_price");
-        let color=await  this.store.get("playerores_"+ore.name+"_color");
-        let mat=await  this.store.get("playerores_"+ore.name+"_mat");
-        let owner=await  this.store.get("playerores_"+ore.name+"_owner");
+        let dur=await this.store.get("playerores_"+ore+"_durability");
+        let miny=await  this.store.get("playerores_"+ore+"_miny");
+        let maxy=await this.store.get("playerores_"+ore+"_maxy");
+        let price=await  this.store.get("playerores_"+ore+"_price");
+        let color=await  this.store.get("playerores_"+ore+"_color");
+        let mat=await  this.store.get("playerores_"+ore+"_mat");
+        let owner=await  this.store.get("playerores_"+ore+"_owner");
+
+        if(color===null)
+        color=getRandomInt(12*6);
         
         let playerore = new PlayerOre(dur,ore,price,miny,maxy,color,mat,owner);
         oretypes.push(playerore);
         playerOreTypes.push(playerore);
-        console.log("Loading "+ore.name+".")
+        console.log("Loading "+ore+".")
       }
     }
 
@@ -233,6 +241,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     const drills = setInterval(async ()=>{
       for(const drill of drillingDrills){
         if(drill.range<=drill.mined){
+          if(drillingDrills!=null)
             drillingDrills.splice(drillingDrills.indexOf(drill));
             continue;
         }
@@ -283,7 +292,18 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         Omegga.writeln(
           `Bricks.ClearRegion ${position.join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
         );
-        drill.mined++;
+        if(ore&&ore.type){
+          drill.mined+=Math.max(1,ore.type.durability/drill.playerlevel);
+        }else{
+          console.log("ORE NOT FOUND!");
+          drill.mined++;
+        }
+        if(drill.range < drill.mined){
+          if(drillingDrills!=null)
+            drillingDrills.splice(drillingDrills.indexOf(drill));
+        }
+        if(Number.isNaN(drill.mined))
+        console.log(drill.mined+" is not a number");
         if(drill.direction==='down'as Directions){
           drill.position=[drill.position[0],drill.position[1],drill.position[2]-BRICK_WHOLE];
         }else if(drill.direction==='up'as Directions){
@@ -297,9 +317,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }else if(drill.direction==='soouth' as Directions){
           drill.position=[drill.position[0],drill.position[1]+BRICK_WHOLE,drill.position[2]];
         }
-        }
+        
       }
-    },100);
+    }
+    },500);
 
     const restartChecker = setInterval(()=>{
       let blocksMined = 0;
@@ -405,6 +426,8 @@ if(pla){
       if(numstring){
         num = +numstring;
       }
+      if(num>2000)
+      num=2000;
       if(num<1)
       num=1;
       if(
@@ -417,14 +440,13 @@ if(pla){
       ){
       let pla = playerstats[speaker];
       if(pla){
-        if(pla.bank>=num*5){
-           let direction:Directions = dir as Directions;
-           let drill = new Drill(null,num,speaker,dir);
-         activeDrills.push(drill);
-          pla.bank-=num*5;
-          this.omegga.whisper(speaker,"Bought a drill for "+dir+" for $"+(num*5));
+        if(pla.bank>=num){
+           let drill = new Drill(null,num,speaker,dir,pla.level);
+          activeDrills.push(drill);
+          pla.bank-=num;
+          this.omegga.whisper(speaker,"Bought a drill with "+pla.level+"x"+num+" Durability for $"+(num));
         }else{
-          this.omegga.whisper(speaker,"It costs "+(num*5)+" to drill "+num+" blocks");
+          this.omegga.whisper(speaker,"It costs "+(num)+" to drill "+num+" blocks");
         }
       }
       }else{        
@@ -675,7 +697,7 @@ if(pla){
       playerstat.cooldown=Date.now();
 
       let ore = await this.getOre(position);
-      if(ore===undefined||ore==null){
+      if(!ore||ore===null){
         let chunk = getChunk(position[0],position[1],position[2]);
         if(chunk.spots.indexOf("x"+position[0]+"y"+position[1]+"z"+position[2])==-1){
         await this.genOre([position],position);
@@ -689,6 +711,7 @@ if(pla){
         for(const drill of activeDrills){
           if(drill.player===player.name){
             drill.position=position;
+            if(activeDrills!=null)
             activeDrills.splice(activeDrills.indexOf(drill));
             drillingDrills.push(drill);
             return;
@@ -703,9 +726,10 @@ if(pla){
         if(ore){
           if(ore.getDurability()>0&&ore.getDurability()-playerstat.level<=0){
             playerstat.blocksmined++;
-            if(ore.type.price>0){
             this.omegga.middlePrint(player.name,colorGreen+ore.type.name+"</> <br> "+colorYellow+"Earned:</> $"+(ore.type.price*globalMoneyMultiplier*globalMoneyMultiplierTimer).toFixed(2));
-            playerstat.bank+=(ore.type.price*globalMoneyMultiplier*globalMoneyMultiplierTimer);
+            
+            if(ore.type.price>0){
+              playerstat.bank+=(ore.type.price*globalMoneyMultiplier*globalMoneyMultiplierTimer);
             }
             
       switch (ore.type) {
@@ -721,7 +745,7 @@ if(pla){
           break;
 
         case bomb:
-          this.omegga.broadcast(""+playerstat.name+" detonated a bomb!");
+         /*this.omegga.broadcast(""+playerstat.name+" detonated a bomb!");
           let radius =(Math.min((playerstat.level/10)+7,45))*BRICK_WHOLE;
           let array:Array<Vector> = [];
           for(let x = position[0]-radius-BRICK_WHOLE;x<=position[0]+radius+BRICK_WHOLE;x+=BRICK_WHOLE){
@@ -748,6 +772,7 @@ if(pla){
             }
           }
           this.genOre(array,position);
+          break;*/
           break;
 
         case lotto:
@@ -891,6 +916,7 @@ if(pla){
         }
         this.genOre(positionArray,position);
         let c = getChunk(position[0],position[1],position[2]);
+        if(c.ores!=null)
         c.ores.splice(c.ores.indexOf(ore));
         Omegga.writeln(
           `Bricks.ClearRegion ${position.join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
@@ -943,14 +969,11 @@ if(pla){
         ore = new Ore(blockPos,lotto);
         getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }else if(getRandomInt(100)<Math.min(50,-blockPos[2]/7000)){
-          ore = new Ore(blockPos,lava);
-          getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
+        ore = new Ore(blockPos,lava);
+        getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }else if(getRandomInt(2000)<2&&blockPos[2]<-4000){
-            ore = new Ore(blockPos,bomb);
-            getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
-          }else if(getRandomInt(2000)<2&&blockPos[2]>4000){
-                ore = new Ore(blockPos,bomb);
-                getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
+        ore = new Ore(blockPos,bomb);
+        getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }else if(getRandomInt(100)<4){
         let j = getRandomInt(oretypes.length);
         let oret = oretypes[j];
@@ -960,15 +983,14 @@ if(pla){
           oret = oretypes[j];
           tries++;
           j++;
-          if(!oret)
-          break;
+          j%=oretypes.length;
         }
 
-        if(!oret){
-          let b:boolean = (blockPos[2]>0) as boolean;
-          oret = this.generateNewOre(blockPos[2],blockPos[2],b);
-          oretypes.push(oret);
-        }
+          if(!oret){
+            let b:boolean = (blockPos[2]>0) as boolean;
+            oret = this.generateNewOre(blockPos[2],blockPos[2],b);
+            oretypes.push(oret);
+          }
           ore = new Ore(blockPos,oret);
           getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
       }else{
@@ -983,11 +1005,15 @@ if(pla){
         }
         if(!stone){
           let b:boolean = (blockPos[2]>0) as boolean;
-          stone = this.generateNewOre(blockPos[2],blockPos[2],b);
+          stone = this.generateNewStone(blockPos[2],blockPos[2],b);
           stonetypes.push(stone);
         }
         ore = new Ore(blockPos,stone);
         getChunk(blockPos[0],blockPos[1],blockPos[2]).ores.push(ore);
+      }
+      if(ore.type.color === null){
+      console.log(ore.type.name+" has null color")
+      ore.type.color=0;
       }
       positionalData.push({
         position:[pos[0]-center[0],pos[1]-center[1],pos[2]-center[2]],
@@ -1110,8 +1136,8 @@ if(pla){
     let color = getRandomInt(12*6);
     let material = 3+getRandomInt(3);
     if(up)
-    return new OreType(durability,x+y,0,miny,miny+10000,color,material);
-    return new OreType(durability,x+y,0,miny-10000,miny,color,material);
+    return new OreType(durability,x+" "+y,0,miny,miny+10000,color,material);
+    return new OreType(durability,x+" "+y,0,miny-10000,miny,color,material);
   }
 
 
