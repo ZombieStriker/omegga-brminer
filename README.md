@@ -11,3 +11,4 @@ Adds UnlimitedMining from Blockland to Brickadia.
 * /buygun - buys a gun
 * /bank - Shows your current balance
 * /renameore - Renames the ore that is named after you.
+* And waaaay more....
