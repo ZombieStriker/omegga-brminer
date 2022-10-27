@@ -2,7 +2,12 @@
     "name": "BRMiner",
     "description": "Infinite Miner Plugin",
     "author": "Zombie_Striker",
-    "config": {
+    "config": {      
+      "enable-guns": {
+        "description": "Toggles whether guns should be allowed in the game",
+        "default": false,
+        "type": "boolean"
+      },
       "autosave-interval": {
         "description": "This is the time (in-minutes) that playerstats are saved to the store",
         "default": 5,

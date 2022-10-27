@@ -8,8 +8,8 @@ import Drill, { Directions } from './drill';
 type Config = { foo: string };
 
 const BRICK_SIZE = 20;
-const CHUNK_SIZE = BRICK_SIZE * 32;
 const BRICK_WHOLE = 2 * BRICK_SIZE;
+const CHUNK_SIZE = BRICK_WHOLE * 5;
 let spots: Chunk[][][] = [];
 let playerstats: PlayerStats[] = []; //An Object containing all player data
 let cooldownWarnings: number[] = [];
@@ -21,6 +21,7 @@ let lotto: OreType = new OreType(15000, "LottoBlock", 0, -5000000, 5000, 38, 5);
 let globalMoneyMultiplier = 1;
 let globalMoneyMultiplierTimer = 1;
 let rlcbmium = null;
+let blocksMined = 0;
 
 let activeDrills: Drill[] = []
 let drillingDrills: Drill[] = [];
@@ -70,6 +71,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         this.omegga.loadBricks("brminer")
         spots = [];
         drillingDrills = [];
+        blocksMined=0;
       }, 1000 * 15);
     });
     this.omegga.on('mapchange', async () => {
@@ -87,6 +89,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
       this.omegga.clearAllBricks();
       this.omegga.loadBricks("brminer")
+      blocksMined=0;
       spots = [];
     });
     for (const pla of this.omegga.getPlayers()) {
@@ -111,6 +114,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.omegga.clearAllBricks();
       this.omegga.loadBricks("brminer");
       spots=[]
+      blocksMined=0;
     }, 2000);
 
     oretypes.push(new OreType(10, "Tin", 5, -4000000000, 4000000000, 0, 6));
@@ -248,6 +252,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     let drillindex =0;
 
+    if(this.config['enable-drills']){
     const drills = setInterval(async () => {
       let p  = 0;
       for (const drill of drillingDrills) {
@@ -293,8 +298,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             positionArray.push([position[0], position[1], position[2]-BRICK_WHOLE])
             chunk.spots[position[0]][position[1]][position[2]-BRICK_WHOLE]=true;
           }
-          this.genOre(positionArray, position);
           let c = getChunk(position[0], position[1], position[2]);
+          this.genOre(positionArray, c);
           let ore = await this.getOre(position);
           c.ores.splice(c.ores.indexOf(ore),1);
           Omegga.writeln(
@@ -325,35 +330,17 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             drill.position = [drill.position[0], drill.position[1] + BRICK_WHOLE, drill.position[2]];
           }
         }
+        blocksMined++;
         return;
         }
         p++
       }
-    }, 100);
+    }, 50);
+  }
 
     const restartChecker = setInterval(() => {
-      let blocksMined = 0;
-      try{
-      for (let c1 of spots) {
-        try{
-        for (let c2 of c1) {
-          try{
-          for (let c3 of c2) {
-        blocksMined += c3.spots.length;
-          }
-        }catch(error){
-          
-        }
-        }
-      }catch(error){
-        
-      }
-      }
-    }catch(error){
-
-    }
-      if (blocksMined > 300000) {
-        this.omegga.broadcast("Surpassed 300,000 bricks mined. Restarting...");
+      if (blocksMined > 100000) {
+        this.omegga.broadcast("Surpassed 100,000 bricks mined. Restarting...");
         setTimeout(() => {
           for (const player of this.omegga.getPlayers()) {
             const pla = playerstats[player.name];
@@ -375,7 +362,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }, 5000);
       } else {
         blocksMined = +blocksMined;
-        this.omegga.broadcast(blocksMined + "/300,000 bricks mined.")
+        this.omegga.broadcast(blocksMined + "/100,000 bricks mined.")
       }
     }, 5 * 60000);
 
@@ -451,6 +438,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
 
     });
+    if(this.config['enable-drills'])
     this.omegga.on('cmd:buydrill', async (speaker: string, numstring: string, dir: string) => {
       let num = 1;
       if (numstring) {
@@ -556,7 +544,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
 
     });
-
+        if(this.config['enable-guns']){
     this.omegga.on('cmd:buygun', async (speaker: string) => {
       let playerstat = playerstats[speaker];
       let cost = 1000;
@@ -565,13 +553,13 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           this.omegga.whisper(speaker, "You need atleast $" + cost.toFixed(2) + " to buy a gun. You have $" + playerstat.bank.toFixed(2));
           return;
         } else {
-          this.omegga.getPlayer(speaker).giveItem('Weapon_MagnumPistol')
+          this.omegga.getPlayer(speaker).giveItem('Weapon_FlintlockPistol')
           playerstat.bank -= cost;
           this.omegga.whisper(speaker, "You now have a gun.");
         }
       }
-
     });
+  }
 
 
     this.omegga.on('cmd:bank', async (speaker: string) => {
@@ -642,11 +630,15 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       this.omegga.whisper(speaker, "/buyhs - Buys a heat suit so you can mine lava");
       this.omegga.whisper(speaker, "/bank - See how much money you currently have.");
       this.omegga.whisper(speaker, "/top - See how much money/levels everyone online has.");
+      if(this.config['enable-guns']){
       this.omegga.whisper(speaker, "/buygun - Buy a gun, just like if you were in the USA.");
+      }
       this.omegga.whisper(speaker, "/renameore (name) - renames your ore to that name.");
       this.omegga.whisper(speaker, "/stats - Shows your stats");
-      this.omegga.whisper(speaker, "/save - Manually saves your progress in case of crash.");
+      this.omegga.whisper(speaker, "/save - Manually saves your progress in case sof crash.");
+      if(this.config['enable-drills']){
       this.omegga.whisper(speaker, "/buydrill (depth) (direction) - Buys a drill that you can deploy that mines in a direction (up,down,north,south,east,west)");
+      }
     });
 
     this.omegga.on('cmd:buyhs', async (speaker: string, numstring: string) => {
@@ -866,6 +858,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         ore.setDurability(ore.getDurability() - playerstat.level);
       }
       const time3 = Date.now();
+      let time31 = 0;
+      let time32 = 0;
 
       if (ore == null || ore.getDurability() <= 0) {
         if (Date.now() - playerstat.cooldown_mining < 100)
@@ -912,21 +906,24 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           positionArray.push([position[0], position[1], position[2]-BRICK_WHOLE])
           chunk.spots[position[0]][position[1]][position[2]-BRICK_WHOLE]=true;
         }
-        this.genOre(positionArray, position);
+        time31 = Date.now();
         let c = getChunk(position[0], position[1], position[2]);
+        this.genOre(positionArray, c);
+        time32 = Date.now();
         if (c.ores != null)
           c.ores.splice(c.ores.indexOf(ore),1);
         Omegga.writeln(
           `Bricks.ClearRegion ${position.join(' ')} ${BRICK_SIZE} ${BRICK_SIZE} ${BRICK_SIZE}`
         );
+        blocksMined++;
 
       } else {
         if (ore.type)
           this.omegga.middlePrint(player.name, colorGreen + ore.type.name + "</>" + colorYellow + "<br> Durability: " + ore.getDurability() + "</><br>Price: $" + (ore.type.price * globalMoneyMultiplier).toFixed(2));
       }
       const time4 = Date.now();
-      if (time4 - time1 > 500)
-        console.log((time2 - time1) + " " + (time3 - time2) + " " + (time4 - time3))
+      if (time4 - time1 > 50)
+        console.log((time4 - time31) + " " + (time4 - time32) + " " + (time4 - time3))
     } catch (error) {
       console.error(error);
     }
@@ -953,7 +950,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
    * Generates ore to the memory arrays / Loads brickData.
    * @param posArray
    */
-  genOre(posArray: Array<Vector>, center: Vector): void {
+  genOre(posArray: Array<Vector>, c: Chunk): void {
     let positionalData = [];
 
     for (let i = 0; i < posArray.length; i++) {
@@ -963,7 +960,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       let ore = null;
 
       // ore generator
-      if (getRandomInt(9000) < 1) {
+      if (getRandomInt(3000) < 1) {
         ore = new Ore(blockPos, lotto);
         getChunk(blockPos[0], blockPos[1], blockPos[2]).ores.push(ore);
       } else if (getRandomInt(100) < Math.min(50, -blockPos[2] / 7000)) {
@@ -974,7 +971,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         let oret = oretypes[j];
         let tries = 0;
         if (oret)
-          while (oret.minY && oret.maxY && (oret.minY > blockPos[2] || oret.maxY < blockPos[2]) && tries < 1000) {
+          while (oret.minY && oret.maxY && (oret.minY > blockPos[2] || oret.maxY < blockPos[2]) && tries < oretypes.length) {
             oret = oretypes[j];
             tries++;
             j++;
@@ -987,7 +984,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           oretypes.push(oret);
         }
         ore = new Ore(blockPos, oret);
-        getChunk(blockPos[0], blockPos[1], blockPos[2]).ores.push(ore);
+        c.ores.push(ore);
       } else {
         let j = 0;
         let stone = stonetypes[j];
@@ -1004,14 +1001,14 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           stonetypes.push(stone);
         }
         ore = new Ore(blockPos, stone);
-        getChunk(blockPos[0], blockPos[1], blockPos[2]).ores.push(ore);
+        c.ores.push(ore);
       }
       if (ore.type.color === null) {
         console.log(ore.type.name + " has null color")
         ore.type.color = 0;
       }
       positionalData.push({
-        position: [pos[0] - center[0], pos[1] - center[1], pos[2] - center[2]],
+        position: [pos[0], pos[1], pos[2]],
         size: [BRICK_SIZE, BRICK_SIZE, BRICK_SIZE],
         color: ore.type.color,
         material_index: ore.type.material
@@ -1095,7 +1092,11 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     };
 
     if (save.bricks.length != 0) {
-      Omegga.loadSaveData(save, { quiet: true, offX: center[0], offY: center[1], offZ: center[2] });
+      for(let b of save.bricks){
+        if(b.color>12*6)
+        console.log("B.color "+b.color+" is crashing the game.");
+      }
+      Omegga.loadSaveData(save, { quiet: true });
     }
   }
 
@@ -1148,8 +1149,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             }
           }
         }
-      }
-      await this.genOre([position],position);
+      }      
+      await this.genOre([position],c);
       return this.getOre(position);
     }
     return null;
