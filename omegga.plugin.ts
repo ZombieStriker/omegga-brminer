@@ -9,7 +9,7 @@ type Config = { foo: string };
 
 const BRICK_SIZE = 20;
 const BRICK_WHOLE = 2 * BRICK_SIZE;
-const CHUNK_SIZE = BRICK_WHOLE * 5;
+let CHUNK_SIZE;
 let spots: Chunk[][][] = [];
 let playerstats: PlayerStats[] = []; //An Object containing all player data
 let cooldownWarnings: number[] = [];
@@ -47,6 +47,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
   async init() {
+
+    CHUNK_SIZE = this.config['chunk-size']*BRICK_WHOLE;
+
+
     this.omegga.on('autorestart', async () => {
       setTimeout(async () => {
         for (const pla of this.omegga.getPlayers()) {

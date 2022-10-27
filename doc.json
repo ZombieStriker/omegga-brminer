@@ -8,6 +8,16 @@
         "default": false,
         "type": "boolean"
       },
+      "enable-drills": {
+        "description": "Toggles whether drills should be allowed in the game",
+        "default": false,
+        "type": "boolean"
+      },
+      "chunk-size": {
+        "description": "Size of the chunk (in blocks) that should be stored together.",
+        "default": 50,
+        "type": "number"
+      },
       "autosave-interval": {
         "description": "This is the time (in-minutes) that playerstats are saved to the store",
         "default": 5,
