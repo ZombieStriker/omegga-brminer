@@ -1,22 +1,43 @@
 {
     "name": "BRMiner",
-    "description": "Infinite Miner Plugin",
+    "description": "Unlimited Mining Plugin",
     "author": "Zombie_Striker",
     "config": {      
       "enable-guns": {
         "description": "Toggles whether guns should be allowed in the game",
-        "default": false,
+        "default": true,
         "type": "boolean"
       },
       "enable-drills": {
         "description": "Toggles whether drills should be allowed in the game",
-        "default": false,
+        "default": true,
+        "type": "boolean"
+      },
+      "enable-axes": {
+        "description": "Toggles whether throwing axes should be allowed in the game",
+        "default": true,
         "type": "boolean"
       },
       "chunk-size": {
         "description": "Size of the chunk (in blocks) that should be stored together.",
         "default": 50,
         "type": "number"
+      },
+      "mine-limit": {
+        "description": "The max amount of blocks that can be mined before resetting.",
+        "default": 50000,
+        "type": "number"
+      },
+      "lotto-chance": {
+        "description": "The chance of a lotto block spawning.",
+        "default": 6000,
+        "type": "number"
+      },
+      "admins": {
+        "description": "All the administrators that have access to commands.",
+        "type": "list",
+        "itemType": "string",
+        "default": ["Zombie_Striker"]
       },
       "autosave-interval": {
         "description": "This is the time (in-minutes) that playerstats are saved to the store",
