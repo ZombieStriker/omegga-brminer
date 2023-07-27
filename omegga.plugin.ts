@@ -131,7 +131,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
 
     oretypes.push(new OreType(10, "Tin", 5, -4000000000, 4000000000, 0, 6));
     oretypes.push(new OreType(12000000, "Dingoananasorium", 1200000, 28000, 52000, 66, 3));
-    oretypes.push(new OreType(1200000, "Meteor", 120000, 28000, 52000, 55, 3));
+    oretypes.push(new OreType(1200000, "Meteorite", 120000, 28000, 52000, 55, 3));
     oretypes.push(new OreType(800000, "Satellite", 80000, 28000, 52000, 15, 3));
     oretypes.push(new OreType(80000, "Altiar 4", 8000, 28000, 52000, 15, 3));
     oretypes.push(new OreType(80000, "Klaatu", 8000, 28000, 52000, 49, 3));
@@ -139,7 +139,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     oretypes.push(new OreType(2000, "Pebbles", 400, 4000, 20000, 1, 3));
     oretypes.push(new OreType(2500, "Pipes", 250, 4000, 20000, 23, 3));
     oretypes.push(new OreType(9000, "Stuff", 900, 4000, 20000, 64, 3));
-    oretypes.push(new OreType(2000, "FrogInCharium", 400, 4000, 20000, 12, 6));
+    oretypes.push(new OreType(2000, "FroggyChairium", 400, 4000, 20000, 12, 6));
     oretypes.push(new OreType(80000, "Tacheyon Nitrox", 8000, 20000, 28000, 4, 6));
     oretypes.push(new OreType(10, "Coal", 5, -4000000000, 4000000000, 11, 3));
     oretypes.push(new OreType(20, "Copper", 5, -40000, 4000, 15, 6));
