@@ -4,6 +4,8 @@ import Ore from './ore'
 import OreType, { PlayerOre } from './oretype'
 import { Chunk } from './chunk';
 import Drill, { Directions } from './drill';
+import test from 'node:test';
+import Brick from 'omegga';
 
 type Config = { foo: string };
 
@@ -35,11 +37,6 @@ const colorGreen = "<color=\"0ccf00\">";
 const colorYellow = "<color=\"00ffff\">";
 const colorRed = "<color=\"ff3303\">";
 
-let stone_word_start: string[] = ["Hard", "Harder", "Super Hard", "Dank", "Banksy", "Poop", "Radioactive", "Cute", "Funny", "Stupid", "Greggory", "Pegg", "Angreggy", "Unknown", "Pizza", "Doof", "<Error>", "LolCatz", "Morb"];
-let stone_word_end: string[] = ["Stone", "Diorite", "Andersite", "Marble", "Quartz", "Limestone"];
-let ore_word_start: string[] = ["Pegg", "Greggory", "Omegga", "Alpha", "<Error>", "Morb", "Dorb", "Poop", "Hero", "Gray", "Pizza", "Donut", "I'm Hungry", "Dad", "Mom", "Train"];
-let ore_word_end: string[] = ["ite", "ium", " Bonds", " Lattice", " Goo", "ion", " Ions"];
-
 export default class Plugin implements OmeggaPlugin<Config, Storage> {
   omegga: OL;
   config: PC<Config>;
@@ -62,25 +59,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     this.omegga.on('autorestart', async () => {
       setTimeout(async () => {
         for (const pla of this.omegga.getPlayers()) {
-          const pss_bank = await this.store.get("playerStatsObject_" + pla.name + "_bank");
-          const pss_level = await this.store.get("playerStatsObject_" + pla.name + "_level");
-          const pss_ls = await this.store.get("playerStatsObject_" + pla.name + "_ls");
-          if (!pss_bank || pss_bank === null) {
-            playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0, 0, 0);
-            if (pla && pla.name)
-              console.info(`New player '${pla.name}' detected, giving them a playerstats template.`);
-          } else {
-            const pss_lm = await this.store.get("playerStatsObject_" + pla.name + "_lm");
-            const pss_bm = await this.store.get("playerStatsObject_" + pla.name + "_bm");
-            if (!pss_lm || pss_lm === null) {
-              playerstats[pla.name] = new PlayerStats(pla.name, pss_level, pss_bank, pss_ls, 0, 0);
-            } else {
-              playerstats[pla.name] = new PlayerStats(pla.name, Math.floor(pss_level), pss_bank, pss_ls, pss_lm, pss_bm);
-            }
-          }
+         this.loadPlayerStats(pla);
         }
         this.omegga.clearAllBricks();
-        this.omegga.loadBricks("brminer")
+        this.loadSpawn();
         spots = [];
         drillingDrills = [];
         blocksMined = 0;
@@ -90,44 +72,23 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       for (const player of this.omegga.getPlayers()) {
         const pla = playerstats[player.name];
         if (pla != null) {
-          const name = pla.name;
-          console.info("Saving PlayerStats for " + name + "...")
-          this.store.set("playerStatsObject_" + name + "_bank", pla.bank);
-          this.store.set("playerStatsObject_" + name + "_level", pla.level);
-          this.store.set("playerStatsObject_" + name + "_ls", pla.lavasuit);
-          this.store.set("playerStatsObject_" + name + "_lm", pla.lowestY);
-          this.store.set("playerStatsObject_" + name + "_bm", pla.blocksmined);
+          this.saveStatsToStore(pla);
         }
       }
       this.omegga.clearAllBricks();
-      this.omegga.loadBricks("brminer")
+      this.loadSpawn();
       blocksMined = 0;
       spots = [];
     });
     for (const pla of this.omegga.getPlayers()) {
-      const pss_bank = await this.store.get("playerStatsObject_" + pla.name + "_bank");
-      const pss_level = await this.store.get("playerStatsObject_" + pla.name + "_level");
-      const pss_ls = await this.store.get("playerStatsObject_" + pla.name + "_ls");
-      if (!pss_bank || pss_bank === null) {
-        playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0, 0, 0);
-        if (pla != undefined && pla.name != undefined)
-          console.info(`New player '${pla.name}' detected, giving them a playerstats template.`);
-      } else {
-        const pss_lm = await this.store.get("playerStatsObject_" + pla.name + "_lm");
-        const pss_bm = await this.store.get("playerStatsObject_" + pla.name + "_bm");
-        if (!pss_lm || pss_lm === null) {
-          playerstats[pla.name] = new PlayerStats(pla.name, pss_level, pss_bank, pss_ls, 0, 0);
-        } else {
-          playerstats[pla.name] = new PlayerStats(pla.name, Math.floor(pss_level), pss_bank, pss_ls, pss_lm, pss_bm);
-        }
-      }
+      this.loadPlayerStats(pla)
     }
     setTimeout(() => {
       this.omegga.clearAllBricks();
-      this.omegga.loadBricks("brminer");
+      this.loadSpawn();
       spots = []
       blocksMined = 0;
-    }, 2000);
+    }, 500);
 
     oretypes.push(new OreType(10, "Tin", 5, -4000000000, 4000000000, 0, 6));
     oretypes.push(new OreType(12000000, "Dingoananasorium", 1200000, 28000, 52000, 66, 3));
@@ -207,36 +168,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
     stonetypes.push(new OreType(100100000, "Goo Stone", 0, -130000, -120000, 21, 4));
     stonetypes.push(new OreType(100100000, "Fake Stone", 0, -150000, -130000, 66, 4));
 
-    //Autosaver 
-    let pol = await this.store.get("playerores_list");
-    if (pol) {
-      for (let ore of pol) {
-        let dur = await this.store.get("playerores_" + ore + "_durability");
-        let miny = await this.store.get("playerores_" + ore + "_miny");
-        let maxy = await this.store.get("playerores_" + ore + "_maxy");
-        let price = await this.store.get("playerores_" + ore + "_price");
-        let color = await this.store.get("playerores_" + ore + "_color");
-        let mat = await this.store.get("playerores_" + ore + "_mat");
-        let owner = await this.store.get("playerores_" + ore + "_owner");
-
-        if (color === null)
-          color = getRandomInt(12 * 6);
-        if (mat > 8) {
-          mat = 3;
-        }
-
-        if (!dur || !miny || !maxy || !owner || !ore) {
-          console.log("Failed to load " + ore + ".")
-          continue;
-        }
-
-        let playerore = new PlayerOre(dur, ore, price, miny, maxy, color, mat, owner);
-        oretypes.push(playerore);
-        playerOreTypes.push(playerore);
-        console.log("Loading " + ore + ".")
-      }
-    }
-
     const placer = setInterval(() => {
       if (blocksToPlace.length > 0) {
         this.placeBlocks();
@@ -244,18 +175,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
     }, 40);
     const autosaver = setInterval(() => {
-      let playerores_list = [];
-      for (const ore of playerOreTypes) {
-        playerores_list.push(ore.name);
-        this.store.set("playerores_" + ore.name + "_durability", ore.durability);
-        this.store.set("playerores_" + ore.name + "_miny", ore.minY);
-        this.store.set("playerores_" + ore.name + "_maxy", ore.maxY);
-        this.store.set("playerores_" + ore.name + "_price", ore.price);
-        this.store.set("playerores_" + ore.name + "_mat", ore.maxY);
-        this.store.set("playerores_" + ore.name + "_color", ore.color);
-        this.store.set("playerores_" + ore.name + "_owner", (ore as PlayerOre).owner);
-      }
-      this.store.set("playerores_list", playerores_list);
       console.info("Saving PlayerStats for ALL...")
       for (const pss of playerstats) {
         if (pss) {
@@ -286,41 +205,14 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             }
             if (drill.position && drill.position != null) {
               let position = drill.position;
-
-
-              let positionArray: Array<Vector> = [];
-              let chunk = getChunk(position[0] + BRICK_WHOLE, position[1], position[2]);
-              if (!chunk.getSpot(position[0] + BRICK_WHOLE, position[1], position[2])) {
-                positionArray.push([position[0] + BRICK_WHOLE, position[1], position[2]])
-                chunk.spots[position[0] + BRICK_WHOLE][position[1]][position[2]] = true;
-              }
-              chunk = getChunk(position[0] - BRICK_WHOLE, position[1], position[2]);
-              if (!chunk.getSpot(position[0] - BRICK_WHOLE, position[1], position[2])) {
-                positionArray.push([position[0] - BRICK_WHOLE, position[1], position[2]])
-                chunk.spots[position[0] - BRICK_WHOLE][position[1]][position[2]] = true;
-              }
-              chunk = getChunk(position[0], position[1] + BRICK_WHOLE, position[2]);
-              if (!chunk.getSpot(position[0], position[1] + BRICK_WHOLE, position[2])) {
-                positionArray.push([position[0], position[1] + BRICK_WHOLE, position[2]])
-                chunk.spots[position[0]][position[1] + BRICK_WHOLE][position[2]] = true;
-              }
-              chunk = getChunk(position[0], position[1] - BRICK_WHOLE, position[2]);
-              if (!chunk.getSpot(position[0], position[1] - BRICK_WHOLE, position[2])) {
-                positionArray.push([position[0], position[1] - BRICK_WHOLE, position[2]])
-                chunk.spots[position[0]][position[1] - BRICK_WHOLE][position[2]] = true;
-              }
-              chunk = getChunk(position[0], position[1], position[2] + BRICK_WHOLE);
-              if (!chunk.getSpot(position[0], position[1], position[2] + BRICK_WHOLE)) {
-                positionArray.push([position[0], position[1], position[2] + BRICK_WHOLE])
-                chunk.spots[position[0]][position[1]][position[2] + BRICK_WHOLE] = true;
-              }
-              chunk = getChunk(position[0], position[1], position[2] - BRICK_WHOLE);
-              if (!chunk.getSpot(position[0], position[1], position[2] - BRICK_WHOLE)) {
-                positionArray.push([position[0], position[1], position[2] - BRICK_WHOLE])
-                chunk.spots[position[0]][position[1]][position[2] - BRICK_WHOLE] = true;
-              }
+              this.pushBlockLocation(position,1,0,0);
+              this.pushBlockLocation(position,-1,0,0);
+              this.pushBlockLocation(position,0,1,0);
+              this.pushBlockLocation(position,0,-1,0);
+              this.pushBlockLocation(position,0,0,1);
+              this.pushBlockLocation(position,0,0,-1);
               let c = getChunk(position[0], position[1], position[2]);
-              this.genOre(positionArray, c, true);
+              //this.genOre(positionArray, c, true);
               let ore = await this.getOre(position);
               c.ores.splice(c.ores.indexOf(ore), 1);
               Omegga.writeln(
@@ -820,11 +712,33 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
       }
     });
     this.omegga.on('interact',
-      async ({ player, position }) => {
+      async ({ player, position,message,brick_asset }) => {
+        if(message==="#mineable"){
         this.mine(player, position);
+        }else{
+          console.log(brick_asset);
+        }
       });
 
     return { registeredCommands: ['upgrade', 'upgrademax', 'bank', 'top', '?', 'buyhs', 'buygun', 'buyaxe','resetmine', 'restore', 'upgradeall', 'renameore', 'stats', 'save', 'setlevel', 'setbank', 'buydrill', 'upgradecost'] };
+  }
+
+  async loadSpawn(){
+    this.placeSpecificStructureBlock(0,0,BRICK_WHOLE*4,BRICK_SIZE*7,BRICK_SIZE*7,BRICK_SIZE,2);
+    this.placeSpecificStructureBlock(0,0,0,BRICK_SIZE*7,BRICK_SIZE*7,BRICK_SIZE,7);
+    this.placeSpawnPoint(0,0,BRICK_SIZE+2,8);
+    for(let x = -3; x <= 3; x++){
+      for(let y = 1;y<4;y++){
+        this.genOre([x*BRICK_WHOLE,BRICK_WHOLE*3,y*BRICK_WHOLE],true);
+        this.genOre([x*BRICK_WHOLE,BRICK_WHOLE*-3,y*BRICK_WHOLE],true);
+      }
+    }
+    for(let x = -2; x <= 2; x++){
+      for(let y = 1;y<4;y++){
+        this.genOre([BRICK_WHOLE*3,x*BRICK_WHOLE,y*BRICK_WHOLE],true);
+        this.genOre([BRICK_WHOLE*-3,x*BRICK_WHOLE,y*BRICK_WHOLE],true);
+      }
+    }
   }
 
   async mine(player: any, position: Vector) {
@@ -844,6 +758,8 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
         }
         return;
       }
+
+
       playerstat.cooldown = Date.now();
       let ore = await this.getOre(position);
       if (ore) {
@@ -939,7 +855,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
                   let raise = getRandomInt(playerstat.bank)
                   found.price += raise;
                   this.omegga.broadcast(colorYellow + found.name + " price has been raised to $" + found.price + "(" + raise + ") </>");
-
                 }
               } else {
                 this.omegga.broadcast(playerstat.name + " mined a lotto-block that did nothing!");
@@ -974,44 +889,16 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           if (chunk.spots[position[0]][position[1]][position[2]] != true) {
             chunk.spots[position[0]][position[1]][position[2]] = true;
           }
-
-
         }
 
-        let positionArray: Array<Vector> = [];
-        let chunk = getChunk(position[0] + BRICK_WHOLE, position[1], position[2]);
-        if (!chunk.getSpot(position[0] + BRICK_WHOLE, position[1], position[2])) {
-          positionArray.push([position[0] + BRICK_WHOLE, position[1], position[2]])
-          chunk.spots[position[0] + BRICK_WHOLE][position[1]][position[2]] = true;
-        }
-        chunk = getChunk(position[0] - BRICK_WHOLE, position[1], position[2]);
-        if (!chunk.getSpot(position[0] - BRICK_WHOLE, position[1], position[2])) {
-          positionArray.push([position[0] - BRICK_WHOLE, position[1], position[2]])
-          chunk.spots[position[0] - BRICK_WHOLE][position[1]][position[2]] = true;
-        }
-        chunk = getChunk(position[0], position[1] + BRICK_WHOLE, position[2]);
-        if (!chunk.getSpot(position[0], position[1] + BRICK_WHOLE, position[2])) {
-          positionArray.push([position[0], position[1] + BRICK_WHOLE, position[2]])
-          chunk.spots[position[0]][position[1] + BRICK_WHOLE][position[2]] = true;
-        }
-        chunk = getChunk(position[0], position[1] - BRICK_WHOLE, position[2]);
-        if (!chunk.getSpot(position[0], position[1] - BRICK_WHOLE, position[2])) {
-          positionArray.push([position[0], position[1] - BRICK_WHOLE, position[2]])
-          chunk.spots[position[0]][position[1] - BRICK_WHOLE][position[2]] = true;
-        }
-        chunk = getChunk(position[0], position[1], position[2] + BRICK_WHOLE);
-        if (!chunk.getSpot(position[0], position[1], position[2] + BRICK_WHOLE)) {
-          positionArray.push([position[0], position[1], position[2] + BRICK_WHOLE])
-          chunk.spots[position[0]][position[1]][position[2] + BRICK_WHOLE] = true;
-        }
-        chunk = getChunk(position[0], position[1], position[2] - BRICK_WHOLE);
-        if (!chunk.getSpot(position[0], position[1], position[2] - BRICK_WHOLE)) {
-          positionArray.push([position[0], position[1], position[2] - BRICK_WHOLE])
-          chunk.spots[position[0]][position[1]][position[2] - BRICK_WHOLE] = true;
-        }
+        this.pushBlockLocation(position,1,0,0);
+        this.pushBlockLocation(position,-1,0,0);
+        this.pushBlockLocation(position,0,1,0);
+        this.pushBlockLocation(position,0,-1,0);
+        this.pushBlockLocation(position,0,0,1);
+        this.pushBlockLocation(position,0,0,-1);
         time31 = Date.now();
         let c = getChunk(position[0], position[1], position[2]);
-        this.genOre(positionArray, c, true);
         time32 = Date.now();
         if (c.ores != null)
           c.ores.splice(c.ores.indexOf(ore), 1);
@@ -1035,38 +922,59 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   async stop() {
     console.info("Saving PlayerStats for ALL...")
     for (const pss of playerstats) {
-      if (pss != null && pss != undefined) {
-        if (Number.isInteger(pss.level))
-          if (Number.isInteger(pss.bank)) {
-            console.info("Saving PlayerStats for " + pss.name + "... [" + pss.bank + " " + pss.level + "]")
-            await Promise.all([this.store.set("playerStatsObject_" + pss.name + "_level", pss.level)
-              , this.store.set("playerStatsObject_" + pss.name + "_ls", pss.lavasuit)
-              , this.store.set("playerStatsObject_" + pss.name + "_lm", pss.lowestY)
-              , this.store.set("playerStatsObject_" + pss.name + "_bm", pss.blocksmined)
-              , this.store.set("playerStatsObject_" + pss.name + "_bank", pss.bank)])
-          }
-      }
+      this.saveStatsToStore(pss);
     }
   }
+
+
+  
+async loadPlayerStats(pla: any){
+  const pss_bank = await this.store.get("playerStatsObject_" + pla.name + "_bank");
+  const pss_level = await this.store.get("playerStatsObject_" + pla.name + "_level");
+  const pss_ls = await this.store.get("playerStatsObject_" + pla.name + "_ls");
+  if (!pss_bank || pss_bank === null) {
+    playerstats[pla.name] = new PlayerStats(pla.name, 1, 0, 0, 0, 0);
+    if (pla && pla.name)
+      console.info(`New player '${pla.name}' detected, giving them a playerstats template.`);
+  } else {
+    const pss_lm = await this.store.get("playerStatsObject_" + pla.name + "_lm");
+    const pss_bm = await this.store.get("playerStatsObject_" + pla.name + "_bm");
+    if (!pss_lm || pss_lm === null) {
+      playerstats[pla.name] = new PlayerStats(pla.name, pss_level, pss_bank, pss_ls, 0, 0);
+    } else {
+      playerstats[pla.name] = new PlayerStats(pla.name, Math.floor(pss_level), pss_bank, pss_ls, pss_lm, pss_bm);
+    }
+  }
+}
+async saveStatsToStore(pla: any){
+  const name = pla.name;
+  if (pla != null && pla != undefined) {
+  console.info("Saving PlayerStats for " + name + "...")
+  if (Number.isInteger(pla.bank)) 
+    this.store.set("playerStatsObject_" + name + "_bank", pla.bank);
+  if (Number.isInteger(pla.level))
+    this.store.set("playerStatsObject_" + name + "_level", pla.level);
+    this.store.set("playerStatsObject_" + name + "_ls", pla.lavasuit);
+    this.store.set("playerStatsObject_" + name + "_lm", pla.lowestY);
+    this.store.set("playerStatsObject_" + name + "_bm", pla.blocksmined);
+  }
+}
   //Fat Function should be split for organization.
   /**
    * Generates ore to the memory arrays / Loads brickData.
    * @param posArray
    */
-  genOre(posArray: Array<Vector>, c: Chunk, loadBlock: boolean): void {
-    for (let i = 0; i < posArray.length; i++) {
-      let pos = posArray[i]
+  genOre(pos: Vector,loadBlock: boolean): void {
+    let c = getChunk(pos[0], pos[1], pos[2]);
 
       let blockPos: Vector = [pos[0], pos[1], pos[2]];
-      let ore = null;
+      let ore;
 
       // ore generator
       if (getRandomInt(lottoChance) < 1) {
         ore = new Ore(blockPos, lotto);
-        getChunk(blockPos[0], blockPos[1], blockPos[2]).ores.push(ore);
       } else if (getRandomInt(100) < Math.min(50, -blockPos[2] / 7000)) {
         ore = new Ore(blockPos, lava);
-        getChunk(blockPos[0], blockPos[1], blockPos[2]).ores.push(ore);
       } else if (getRandomInt(100) < 4) {
         let j = getRandomInt(oretypes.length);
         let oret = oretypes[j];
@@ -1078,14 +986,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             j++;
             j %= oretypes.length;
           }
-
-        if (!oret) {
-          let b: boolean = (blockPos[2] > 0) as boolean;
-          oret = this.generateNewOre(blockPos[2], blockPos[2], b);
-          oretypes.push(oret);
-        }
         ore = new Ore(blockPos, oret);
-        c.ores.push(ore);
       } else {
         let j = 0;
         let stone = stonetypes[j];
@@ -1096,14 +997,10 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
             if (!stone)
               break;
           }
-        if (!stone) {
-          let b: boolean = (blockPos[2] > 0) as boolean;
-          stone = this.generateNewStone(blockPos[2], blockPos[2], b);
-          stonetypes.push(stone);
-        }
         ore = new Ore(blockPos, stone);
-        c.ores.push(ore);
       }
+      if(ore)
+      c.ores.push(ore);
       if (ore.type.color === null) {
         console.log(ore.type.name + " has null color")
         ore.type.color = 0;
@@ -1116,9 +1013,22 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           material_index: ore.type.material
         })
       }
-    }
   }
 
+  pushBlockLocation(position: Vector,xOffset:number,yOffset:number,zOffset:number){
+    const chunk = getChunk(position[0]+(xOffset*BRICK_WHOLE),position[1]+(yOffset*BRICK_WHOLE),position[2]+(zOffset*BRICK_WHOLE));
+          if (!chunk.getSpot(position[0]+(xOffset*BRICK_WHOLE),position[1]+(yOffset*BRICK_WHOLE),position[2]+(zOffset*BRICK_WHOLE))) {
+            chunk.spots[position[0]+(xOffset*BRICK_WHOLE)][position[1]+(yOffset*BRICK_WHOLE)][position[2]+(zOffset*BRICK_WHOLE)] = true;
+            if(position[0]+(xOffset*BRICK_WHOLE) < BRICK_WHOLE*4)
+            if(position[0]+(xOffset*BRICK_WHOLE) > BRICK_WHOLE*-4)
+            if(position[1]+(yOffset*BRICK_WHOLE) < BRICK_WHOLE*4)
+            if(position[1]+(yOffset*BRICK_WHOLE) > BRICK_WHOLE*-4)
+            if(position[2]+(zOffset*BRICK_WHOLE) < BRICK_WHOLE*4)
+            if(position[2]+(zOffset*BRICK_WHOLE) > 0)
+            return;
+            this.genOre([position[0]+(xOffset*BRICK_WHOLE),position[1]+(yOffset*BRICK_WHOLE),position[2]+(zOffset*BRICK_WHOLE)], true);
+          }
+  }
   async placeBlocks() {
     const publicUser = {
       id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
@@ -1187,11 +1097,180 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           components: {
             BCD_Interact: {
               bPlayInteractSound: false,
-              ConsoleTag: ``,
+              ConsoleTag: `#mineable`,
               Message: ''
             }
           }
 
+        })
+        )
+    };
+
+    if (save.bricks.length != 0) {
+      Omegga.loadSaveData(save, { quiet: true });
+    }else{
+      console.log("Zero bricks loaded....")
+    }
+  }
+
+  
+  async placeSpecificStructureBlock(x: number, y: number, z:number, xSize: number, ySize:number, zSize:number, color: number) {
+    let btp = [];
+    btp.push({
+      position: [x, y, z],
+      size: [xSize, ySize, zSize],
+      color: color,
+      material_index: 3
+    })
+    const publicUser = {
+      id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      name: 'Generator',
+    };
+
+    const save: WriteSaveObject = {
+      author: {
+        id: publicUser.id,
+        name: 'TypeScript',
+      },
+      description: 'Load Segment',
+      map: 'Load Segment',
+      brick_assets: ['PB_DefaultBrick'],
+      colors: [
+        [255, 255, 255, 255], [184, 184, 184, 255], [136, 136, 136, 255],
+        [114, 114, 114, 255], [90, 90, 90, 255], [57, 57, 57, 255],
+        [35, 35, 35, 255], [24, 24, 24, 255], [17, 17, 17, 255],
+        [6, 6, 6, 255], [2, 2, 2, 255], [0, 0, 0, 255],
+        [87, 5, 9, 255], [235, 6, 6, 255], [255, 29, 3, 255],
+        [246, 73, 6, 255], [235, 157, 6, 255], [61, 164, 4, 255],
+        [9, 139, 5, 255], [3, 16, 255, 255], [12, 244, 255, 255],
+        [163, 35, 85, 255], [48, 8, 72, 255], [14, 6, 49, 255],
+        [41, 25, 25, 255], [96, 71, 73, 255], [181, 131, 134, 255],
+        [45, 44, 27, 255], [114, 109, 65, 255], [144, 139, 100, 255],
+        [27, 45, 28, 255], [65, 114, 68, 255], [100, 144, 103, 255],
+        [30, 39, 41, 255], [71, 92, 96, 255], [131, 171, 181, 255],
+        [23, 5, 2, 255], [90, 16, 5, 255], [77, 20, 1, 255],
+        [77, 30, 7, 255], [144, 60, 18, 255], [166, 104, 62, 255],
+        [255, 159, 78, 255], [255, 121, 78, 255], [50, 20, 13, 255],
+        [21, 12, 3, 255], [51, 33, 13, 255], [194, 163, 58, 255],
+        [19, 2, 1, 255], [73, 4, 1, 255], [190, 23, 18, 255],
+        [190, 59, 53, 255], [255, 149, 156, 255], [255, 79, 38, 255],
+        [255, 41, 2, 255], [171, 54, 27, 255], [109, 64, 5, 255],
+        [171, 99, 8, 255], [255, 146, 11, 255], [255, 175, 47, 255],
+        [22, 37, 1, 255], [67, 80, 12, 255], [122, 144, 30, 255],
+        [101, 255, 81, 255], [13, 204, 47, 255], [0, 77, 0, 255],
+        [11, 54, 11, 255], [5, 30, 3, 255], [5, 18, 5, 255],
+        [8, 43, 27, 255], [9, 96, 53, 255], [8, 146, 66, 255],
+        [5, 13, 17, 255], [11, 30, 44, 255], [1, 34, 64, 255],
+        [0, 65, 122, 255], [8, 118, 200, 255], [5, 152, 171, 255],
+        [80, 147, 163, 255], [134, 250, 255, 255], [86, 119, 242, 255],
+        [37, 55, 235, 255], [12, 25, 156, 255], [1, 4, 44, 255],
+        [8, 0, 30, 255], [18, 0, 57, 255], [56, 19, 100, 255],
+        [141, 45, 255, 255], [255, 93, 255, 255], [253, 149, 255, 255],
+        [255, 58, 116, 255], [91, 18, 55, 255], [255, 24, 255, 255],
+        [255, 0, 55, 255], [127, 0, 29, 255], [55, 0, 55, 255]
+      ],
+      materials: [
+        'BMC_Hidden',
+        'BMC_Ghost',
+        'BMC_Ghost_Fail',
+        'BMC_Plastic',
+        'BMC_Glass',
+        'BMC_Glow',
+        'BMC_Metallic',
+        'BMC_Hologram'
+      ],
+      brick_owners: [publicUser],
+      bricks: btp
+        .map(({ position, size, color, material_index }) => ({
+          size: size,
+          position: position,
+          color: color,
+          material_index: material_index,
+          components: {
+          }
+        })
+        )
+    };
+
+    if (save.bricks.length != 0) {
+      Omegga.loadSaveData(save, { quiet: true });
+    }
+  }
+  async placeSpawnPoint(x: number, y: number, z:number,color: number) {
+    let btp = [];
+    btp.push({
+      position: [x, y, z],
+      size: [0, 0, 0],
+      color: color,
+      material_index: 3
+    })
+    const publicUser = {
+      id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      name: 'Generator',
+    };
+
+    const save: WriteSaveObject = {
+      author: {
+        id: publicUser.id,
+        name: 'TypeScript',
+      },
+      description: 'Load Segment',
+      map: 'Load Segment',
+      brick_assets: ['B_SpawnPoint'],
+      colors: [
+        [255, 255, 255, 255], [184, 184, 184, 255], [136, 136, 136, 255],
+        [114, 114, 114, 255], [90, 90, 90, 255], [57, 57, 57, 255],
+        [35, 35, 35, 255], [24, 24, 24, 255], [17, 17, 17, 255],
+        [6, 6, 6, 255], [2, 2, 2, 255], [0, 0, 0, 255],
+        [87, 5, 9, 255], [235, 6, 6, 255], [255, 29, 3, 255],
+        [246, 73, 6, 255], [235, 157, 6, 255], [61, 164, 4, 255],
+        [9, 139, 5, 255], [3, 16, 255, 255], [12, 244, 255, 255],
+        [163, 35, 85, 255], [48, 8, 72, 255], [14, 6, 49, 255],
+        [41, 25, 25, 255], [96, 71, 73, 255], [181, 131, 134, 255],
+        [45, 44, 27, 255], [114, 109, 65, 255], [144, 139, 100, 255],
+        [27, 45, 28, 255], [65, 114, 68, 255], [100, 144, 103, 255],
+        [30, 39, 41, 255], [71, 92, 96, 255], [131, 171, 181, 255],
+        [23, 5, 2, 255], [90, 16, 5, 255], [77, 20, 1, 255],
+        [77, 30, 7, 255], [144, 60, 18, 255], [166, 104, 62, 255],
+        [255, 159, 78, 255], [255, 121, 78, 255], [50, 20, 13, 255],
+        [21, 12, 3, 255], [51, 33, 13, 255], [194, 163, 58, 255],
+        [19, 2, 1, 255], [73, 4, 1, 255], [190, 23, 18, 255],
+        [190, 59, 53, 255], [255, 149, 156, 255], [255, 79, 38, 255],
+        [255, 41, 2, 255], [171, 54, 27, 255], [109, 64, 5, 255],
+        [171, 99, 8, 255], [255, 146, 11, 255], [255, 175, 47, 255],
+        [22, 37, 1, 255], [67, 80, 12, 255], [122, 144, 30, 255],
+        [101, 255, 81, 255], [13, 204, 47, 255], [0, 77, 0, 255],
+        [11, 54, 11, 255], [5, 30, 3, 255], [5, 18, 5, 255],
+        [8, 43, 27, 255], [9, 96, 53, 255], [8, 146, 66, 255],
+        [5, 13, 17, 255], [11, 30, 44, 255], [1, 34, 64, 255],
+        [0, 65, 122, 255], [8, 118, 200, 255], [5, 152, 171, 255],
+        [80, 147, 163, 255], [134, 250, 255, 255], [86, 119, 242, 255],
+        [37, 55, 235, 255], [12, 25, 156, 255], [1, 4, 44, 255],
+        [8, 0, 30, 255], [18, 0, 57, 255], [56, 19, 100, 255],
+        [141, 45, 255, 255], [255, 93, 255, 255], [253, 149, 255, 255],
+        [255, 58, 116, 255], [91, 18, 55, 255], [255, 24, 255, 255],
+        [255, 0, 55, 255], [127, 0, 29, 255], [55, 0, 55, 255]
+      ],
+      materials: [
+        'BMC_Hidden',
+        'BMC_Ghost',
+        'BMC_Ghost_Fail',
+        'BMC_Plastic',
+        'BMC_Glass',
+        'BMC_Glow',
+        'BMC_Metallic',
+        'BMC_Hologram'
+      ],
+      brick_owners: [publicUser],
+      bricks: btp
+        .map(({ position, size, color, material_index }) => ({
+          size: size,
+          visibility: false,
+          position: position,
+          color: color,
+          material_index: material_index,
+          components: {
+          }
         })
         )
     };
@@ -1210,34 +1289,6 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
   }
 
 
-
-
-  async clearBricks(center: Vector, extent: Vector) {
-  }
-
-  generateNewOre(distance: number, miny: number, up: boolean): OreType {
-    let x = ore_word_start[getRandomInt(ore_word_start.length)];
-    let y = ore_word_end[getRandomInt(ore_word_end.length)];
-    let durability = getRandomInt(distance * 100);
-    let color = getRandomInt(12 * 6);
-    let material = 3 + getRandomInt(3);
-    if (up)
-      return new OreType(durability, x + y, durability / 15, miny, miny + 10000, color, material);
-    return new OreType(durability, x + y, durability / 15, miny - 10000, miny, color, material);
-  }
-
-  generateNewStone(distance: number, miny: number, up: boolean): OreType {
-    let x = stone_word_start[getRandomInt(stone_word_start.length)];
-    let y = stone_word_end[getRandomInt(stone_word_end.length)];
-    let durability = getRandomInt(distance * 100);
-    let color = getRandomInt(12 * 6);
-    let material = 3 + getRandomInt(3);
-    if (up)
-      return new OreType(durability, x + " " + y, 0, miny, miny + 10000, color, material);
-    return new OreType(durability, x + " " + y, 0, miny - 10000, miny, color, material);
-  }
-
-
   async getOre(position: Vector) {
     let c = getChunk(position[0], position[1], position[2]);
     if (c) {
@@ -1251,7 +1302,7 @@ export default class Plugin implements OmeggaPlugin<Config, Storage> {
           }
         }
       }
-      await this.genOre([position], c, false);
+      await this.genOre(position, false);
       return this.getOre(position);
     }
     return null;
@@ -1266,27 +1317,6 @@ function getChunk(x: number, y: number, z: number) {
   let xx = Math.floor(x / CHUNK_SIZE);
   let yy = Math.floor(y / CHUNK_SIZE);
   let zz = Math.floor(z / CHUNK_SIZE);
-  /*for (const chunk of spots) {
-    index++;
-    if (x / CHUNK_SIZE == chunk.x) {
-      if (y / CHUNK_SIZE == chunk.y) {
-        if (z / CHUNK_SIZE == chunk.z) {
-          if (index > spots.length / 4) {
-
-            spots.sort(function (a, b) {
-              if (a && b) {
-                return b.lastmined - a.lastmined;
-              }
-              return 0;
-            });
-
-            chunk.lastmined = Date.now();
-          }
-          return chunk;
-        }
-      }
-    }
-  }*/
   if (!spots) {
     spots = []
   }
@@ -1297,12 +1327,8 @@ function getChunk(x: number, y: number, z: number) {
   if (spots[xx][yy][zz]) {
     return spots[xx][yy][zz];
   }
-  /*let chunk = spots[x/CHUNK_SIZE][y/CHUNK_SIZE][z/CHUNK_SIZE];
-  if(chunk)
-    return chunk;*/
   let c = new Chunk(xx, yy, zz);
   c.lastmined = Date.now();
-  //spots.push(c);
   spots[xx][yy][zz] = c;
   return c;
 }
